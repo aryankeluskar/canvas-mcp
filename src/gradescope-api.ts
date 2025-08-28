@@ -37,14 +37,7 @@ interface GradescopeAssignment {
   max_grade: number | null;
 }
 
-interface GradescopeSubmission {
-  id: string;
-  student_email: string;
-  submission_time?: string;
-  score?: number;
-  status?: string;
-  files?: string[]; // AWS S3 URLs to submission files
-}
+
 
 interface GradescopeMember {
   full_name: string;
@@ -682,77 +675,7 @@ export class GradescopeApi {
     return null;
   }
 
-  /**
-   * Get all submissions for an assignment (replicates get_assignment_submissions)
-   */
-  async getGradescopeSubmissions(courseId: string, assignmentId: string): Promise<GradescopeSubmission[] | null> {
-    const cacheKey = `${courseId}_${assignmentId}`;
-    
-    // Check cache first
-    const cached = cache.get<GradescopeSubmission[]>('gradescope_submissions', cacheKey);
-    if (cached) {
-      this.config.logger.debug(`Using cached submissions for assignment ${assignmentId}`);
-      return cached;
-    }
 
-    try {
-      const submissionsUrl = `${DEFAULT_GRADESCOPE_BASE_URL}/courses/${courseId}/assignments/${assignmentId}/review_grades`;
-      const response = await this.makeAuthenticatedRequest(submissionsUrl);
-      if (!response) {
-        return null;
-      }
-
-      const html = await response.text();
-      const $ = cheerio.load(html);
-
-      const submissions: GradescopeSubmission[] = [];
-      
-      // Parse submission table
-      $('td.table--primaryLink a').each((_, element) => {
-        const href = $(element).attr('href');
-        if (href) {
-          const submissionId = href.split('/').pop();
-          if (submissionId) {
-            submissions.push({
-              id: submissionId,
-              student_email: 'unknown@example.com', // Would need to parse from adjacent cells
-              status: 'submitted'
-            });
-          }
-        }
-      });
-
-      // Store in cache
-      cache.set('gradescope_submissions', submissions, cacheKey);
-      return submissions;
-      
-    } catch (error) {
-      this.config.logger.error('Error in getGradescopeSubmissions:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get a specific student's submission for an assignment
-   */
-  async getGradescopeStudentSubmission(
-    courseId: string,
-    assignmentId: string,
-    studentEmail: string
-  ): Promise<GradescopeSubmission | null> {
-    try {
-      const submissions = await this.getGradescopeSubmissions(courseId, assignmentId);
-      if (!submissions) {
-        return null;
-      }
-
-      return submissions.find(sub => sub.student_email === studentEmail) || null;
-      
-    } catch (error) {
-      this.config.logger.error('Error in getGradescopeStudentSubmission:', error);
-      return null;
-    }
-  }
 
   /**
    * Analyze a natural language query to determine what Gradescope information is being requested
@@ -806,7 +729,8 @@ export class GradescopeApi {
         return courses;
 
       case 'get_assignments':
-        // For assignments, we'd need course context from the query
+      case 'get_submission':
+        // Both assignments and submission queries return assignment data (which includes submission info for students)
         const allCourses = await this.getGradescopeCourses();
         if (allCourses) {
           return {
@@ -817,12 +741,9 @@ export class GradescopeApi {
           return { error: 'Could not determine which course to get assignments for' };
         }
 
-      case 'get_submission':
-        return { error: 'Could not determine which course or assignment to get submissions for' };
-
       default:
         return {
-          error: 'I\'m not sure what you\'re asking about Gradescope. Try asking about your courses, assignments, or submissions.'
+          error: 'I\'m not sure what you\'re asking about Gradescope. Try asking about your courses or assignments.'
         };
     }
   }
@@ -832,7 +753,6 @@ export type {
   GradescopeConfig,
   GradescopeCourse,
   GradescopeAssignment,
-  GradescopeSubmission,
   GradescopeMember,
   GradescopeQueryAnalysis
 };
