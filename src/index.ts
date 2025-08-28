@@ -226,6 +226,9 @@ export default function createStatelessServer({
     server.tool(
       "get_gradescope_courses",
       "Use this tool to retrieve all available Gradescope courses for the current user. This tool returns a dictionary of courses organized by user role. Use this when helping users access or manage their Gradescope course information.",
+      {
+        random_string: z.string().default("").describe("Dummy parameter for no-parameter tools")
+      },
       async () => {
         try {
           const courses = await gradescopeApi!.getGradescopeCourses();
@@ -244,8 +247,258 @@ export default function createStatelessServer({
       }
     );
 
-    // Additional Gradescope tools would continue here...
-    // (Truncated for brevity - the complete implementation includes all 15 tools)
+    // Tool 9: Get Gradescope course by name
+    server.tool(
+      "get_gradescope_course_by_name",
+      "Use this tool to find a specific Gradescope course by name (partial matches supported). This tool returns the course object if found. Use this when you need to get course details or ID when only the name is known.",
+      {
+        course_name: z.string().describe("The name or partial name of the Gradescope course to search for")
+      },
+      async ({ course_name }) => {
+        try {
+          const course = await gradescopeApi!.getGradescopeCourseByName(course_name);
+          return {
+            content: [{ 
+              type: "text", 
+              text: course ? JSON.stringify(course, null, 2) : "Course not found"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_gradescope_course_by_name:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving Gradescope course" }]
+          };
+        }
+      }
+    );
+
+    // Tool 10: Get Gradescope assignments
+    server.tool(
+      "get_gradescope_assignments",
+      "Use this tool to retrieve all assignments for a specific Gradescope course. This tool returns assignment details including status and user submissions. Use this when helping users manage their Gradescope coursework.",
+      {
+        course_id: z.string().describe("The Gradescope course ID")
+      },
+      async ({ course_id }) => {
+        try {
+          const assignments = await gradescopeApi!.getGradescopeAssignments(course_id);
+          return {
+            content: [{ 
+              type: "text", 
+              text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_gradescope_assignments:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving Gradescope assignments" }]
+          };
+        }
+      }
+    );
+
+    // Tool 11: Get Gradescope assignment by name
+    server.tool(
+      "get_gradescope_assignment_by_name",
+      "Use this tool to find a specific Gradescope assignment by name within a course. This tool returns the assignment object if found, including status and user submissions. Use this when you need assignment details or ID when only the name and course are known.",
+      {
+        course_id: z.string().describe("The Gradescope course ID"),
+        assignment_name: z.string().describe("The name or partial name of the assignment to search for")
+      },
+      async ({ course_id, assignment_name }) => {
+        try {
+          const assignment = await gradescopeApi!.getGradescopeAssignmentByName(course_id, assignment_name);
+          return {
+            content: [{ 
+              type: "text", 
+              text: assignment ? JSON.stringify(assignment, null, 2) : "Assignment not found"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_gradescope_assignment_by_name:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving Gradescope assignment" }]
+          };
+        }
+      }
+    );
+
+    // Tool 12: Get Gradescope submissions
+    server.tool(
+      "get_gradescope_submissions",
+      "Use this tool to retrieve all submissions for a specific Gradescope assignment. This tool returns a list of submission objects with details like submission time and score. Use this when helping users review or manage submission information.",
+      {
+        course_id: z.string().describe("The Gradescope course ID"),
+        assignment_id: z.string().describe("The Gradescope assignment ID")
+      },
+      async ({ course_id, assignment_id }) => {
+        try {
+          const submissions = await gradescopeApi!.getGradescopeSubmissions(course_id, assignment_id);
+          return {
+            content: [{ 
+              type: "text", 
+              text: submissions ? JSON.stringify(submissions, null, 2) : "Failed to retrieve submissions"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_gradescope_submissions:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving Gradescope submissions" }]
+          };
+        }
+      }
+    );
+
+    // Tool 13: Get Gradescope student submission
+    server.tool(
+      "get_gradescope_student_submission",
+      "Use this tool to retrieve a specific student's submission for a Gradescope assignment. This tool returns the submission object if found. Use this when helping a student review their own submission or when an instructor needs details about a specific student's work.",
+      {
+        course_id: z.string().describe("The Gradescope course ID"),
+        assignment_id: z.string().describe("The Gradescope assignment ID"),
+        student_email: z.string().describe("The email address of the student whose submission to retrieve")
+      },
+      async ({ course_id, assignment_id, student_email }) => {
+        try {
+          const submission = await gradescopeApi!.getGradescopeStudentSubmission(course_id, assignment_id, student_email);
+          return {
+            content: [{ 
+              type: "text", 
+              text: submission ? JSON.stringify(submission, null, 2) : "Submission not found"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_gradescope_student_submission:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving Gradescope student submission" }]
+          };
+        }
+      }
+    );
+
+    // Tool 14: Search Gradescope
+    server.tool(
+      "call_search_gradescope",
+      "Use this tool to search for information across Gradescope using natural language queries. This tool analyzes the query and returns relevant information about courses, assignments, or submissions. Use this when helping users find Gradescope information without knowing specific IDs or technical details.",
+      {
+        query: z.string().describe("Natural language query about Gradescope courses, assignments, etc.")
+      },
+      async ({ query }) => {
+        try {
+          const result = await gradescopeApi!.searchGradescope(query);
+          return {
+            content: [{ 
+              type: "text", 
+              text: JSON.stringify(result, null, 2)
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in call_search_gradescope:", error);
+          return {
+            content: [{ type: "text", text: "Error searching Gradescope" }]
+          };
+        }
+      }
+    );
+
+    // Tool 15: Search education platforms
+    server.tool(
+      "search_education_platforms",
+      "Use this tool to search for information across both Canvas and Gradescope using natural language queries. This tool determines which platform is most relevant to the query and returns appropriately formatted results. Use this for broad educational queries when the user hasn't specified which platform they're interested in.",
+      {
+        query: z.string().describe("Natural language query about courses, assignments, or other educational content")
+      },
+      async ({ query }) => {
+        try {
+          // Simple logic to determine which platform to search
+          const queryLower = query.toLowerCase();
+          let result: any = {};
+
+          // Check if query mentions specific platform
+          if (queryLower.includes('gradescope')) {
+            result = await gradescopeApi!.searchGradescope(query);
+            result.platform = 'Gradescope';
+          } else if (queryLower.includes('canvas')) {
+            // For Canvas, provide basic course info
+            const courses = await canvasApi.getCourses();
+            result = { courses, platform: 'Canvas' };
+          } else {
+            // Search both platforms
+            const [canvasCourses, gradescopeCourses] = await Promise.all([
+              canvasApi.getCourses(),
+              gradescopeApi!.getGradescopeCourses()
+            ]);
+            
+            result = {
+              canvas: canvasCourses,
+              gradescope: gradescopeCourses,
+              platform: 'Both'
+            };
+          }
+
+          return {
+            content: [{ 
+              type: "text", 
+              text: JSON.stringify(result, null, 2)
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in search_education_platforms:", error);
+          return {
+            content: [{ type: "text", text: "Error searching education platforms" }]
+          };
+        }
+      }
+    );
+
+    // ==== UTILITY TOOLS ====
+
+    // Cache statistics tool for debugging
+    server.tool(
+      "get_cache_stats",
+      "Get statistics about the current cache state for debugging purposes",
+      {},
+      async () => {
+        try {
+          const stats = cache.getStats();
+          return {
+            content: [{ 
+              type: "text", 
+              text: JSON.stringify(stats, null, 2)
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in get_cache_stats:", error);
+          return {
+            content: [{ type: "text", text: "Error retrieving cache statistics" }]
+          };
+        }
+      }
+    );
+
+    // Clear cache tool
+    server.tool(
+      "clear_cache",
+      "Clear all cached data to force fresh API requests",
+      {},
+      async () => {
+        try {
+          cache.clear();
+          return {
+            content: [{ 
+              type: "text", 
+              text: "Cache cleared successfully"
+            }]
+          };
+        } catch (error) {
+          logger.error("Error in clear_cache:", error);
+          return {
+            content: [{ type: "text", text: "Error clearing cache" }]
+          };
+        }
+      }
+    );
+
   } else {
     logger.warn("Gradescope credentials not provided - Gradescope tools will not be available");
   }
