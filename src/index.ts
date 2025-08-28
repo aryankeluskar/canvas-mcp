@@ -323,33 +323,6 @@ export default function createStatelessServer({
       }
     );
 
-
-
-    // Tool 12: Search Gradescope
-    server.tool(
-      "call_search_gradescope",
-      "Use this tool to search for information across Gradescope using natural language queries. This tool analyzes the query and returns relevant information about courses, assignments, or submissions. Use this when helping users find Gradescope information without knowing specific IDs or technical details.",
-      {
-        query: z.string().describe("Natural language query about Gradescope courses, assignments, etc.")
-      },
-      async ({ query }) => {
-        try {
-          const result = await gradescopeApi!.searchGradescope(query);
-          return {
-            content: [{ 
-              type: "text", 
-              text: JSON.stringify(result, null, 2)
-            }]
-          };
-        } catch (error) {
-          logger.error("Error in call_search_gradescope:", error);
-          return {
-            content: [{ type: "text", text: "Error searching Gradescope" }]
-          };
-        }
-      }
-    );
-
     // ==== UTILITY TOOLS ====
 
     // Cache statistics tool for debugging

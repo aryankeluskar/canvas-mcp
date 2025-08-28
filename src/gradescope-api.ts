@@ -37,8 +37,6 @@ interface GradescopeAssignment {
   max_grade: number | null;
 }
 
-
-
 interface GradescopeMember {
   full_name: string;
   first_name: string;
