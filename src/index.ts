@@ -226,9 +226,7 @@ export default function createStatelessServer({
     server.tool(
       "get_gradescope_courses",
       "Use this tool to retrieve all available Gradescope courses for the current user. This tool returns a dictionary of courses organized by user role. Use this when helping users access or manage their Gradescope course information.",
-      {
-        random_string: z.string().default("").describe("Dummy parameter for no-parameter tools")
-      },
+      {},
       async () => {
         try {
           const courses = await gradescopeApi!.getGradescopeCourses();
