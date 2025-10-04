@@ -29,7 +29,7 @@ Note down the following beforehand:
    
 ### Installing via Smithery (**Preferred**)
 
-To install Canvas MCP for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@aryankeluskar/canvas-mcp):
+To install Canvas MCP for Claude Desktop via [Smithery](https://smithery.ai/server/@aryankeluskar/canvas-mcp):
 
 ```bash
 npx -y @smithery/cli install @aryankeluskar/canvas-mcp --client claude
@@ -41,20 +41,16 @@ Or, for Cursor IDE to use canvas-mcp with other models:
 npx -y @smithery/cli install @aryankeluskar/canvas-mcp --client cursor
 ```
 
-Or, for Windsurf:
+Or, for ChatGPT:
 
-```bash
-npx -y @smithery/cli install @aryankeluskar/canvas-mcp --client windsurf
-```
+
+1) Enable Developer Mode in settings, if not already enabled
+2) Go to `ChatGPT Settings > Connectors` and click Create to add this server URL: `https://server.smithery.ai/@aryankeluskar/canvas-mcp/mcp`
 
 ---
 
 
-### Manual Installation (ONLY for local instances)
-
-TODO
-
-### Manual Configuration
+### Manual Configuration (ONLY for local instances)
 
 Create a `.env` file in the root directory with the following environment variables:
 
