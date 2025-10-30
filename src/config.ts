@@ -12,7 +12,7 @@ config();
 // Configuration schema validation
 export const configSchema = z.object({
   debug: z.boolean().default(false).describe("Enable debug logging"),
-  canvasApiKey: z.string().describe("Canvas API key"),
+  canvasApiKey: z.string().default("").describe("Canvas API key. Optional; if omitted, Canvas tools will explain how to configure."),
   canvasBaseUrl: z.string().default("https://canvas.asu.edu").describe("Canvas base URL"),
   gradescopeEmail: z.string().optional().describe("Gradescope email"),
   gradescopePassword: z.string().optional().describe("Gradescope password")
@@ -31,11 +31,6 @@ export function getConfig(): Config {
     gradescopeEmail: process.env.GRADESCOPE_EMAIL,
     gradescopePassword: process.env.GRADESCOPE_PASSWORD
   };
-
-  // Validate required fields
-  if (!config.canvasApiKey) {
-    throw new Error('CANVAS_API_KEY environment variable is required');
-  }
 
   return configSchema.parse(config);
 }

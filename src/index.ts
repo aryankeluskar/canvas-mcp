@@ -31,6 +31,7 @@ export default function createStatelessServer({
     baseUrl: config.canvasBaseUrl,
     logger
   });
+  const hasCanvasConfig = Boolean(config.canvasApiKey);
 
   // Initialize Gradescope API only if credentials are provided
   let gradescopeApi: GradescopeApi | null = null;
@@ -51,6 +52,14 @@ export default function createStatelessServer({
     {},
     async () => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{
+              type: "text",
+              text: "Canvas is not configured. Set CANVAS_API_KEY (and optionally CANVAS_BASE_URL) to enable Canvas tools."
+            }]
+          };
+        }
         const courses = await canvasApi.getCourses();
         return {
           content: [{ 
@@ -64,18 +73,24 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving courses" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 2: Get Canvas modules
   server.tool(
     "get_modules",
     "Use this tool to retrieve all modules within a specific Canvas course. This tool returns a list of module objects containing module details like ID, name, and status. Use this when exploring or navigating course content structure.",
-    {
-      course_id: z.string().describe("The Canvas course ID")
-    },
+    z.object({
+      course_id: z.string().describe("The Canvas course ID (required)")
+    }).describe("Input object for get_modules. All fields are required unless marked optional."),
     async ({ course_id }) => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Provide CANVAS_API_KEY to use get_modules." }]
+          };
+        }
         const modules = await canvasApi.getModules(course_id);
         return {
           content: [{ 
@@ -89,19 +104,25 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving modules" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 3: Get module items
   server.tool(
     "get_module_items",
     "Use this tool to retrieve all items within a specific module in a Canvas course. This tool returns a list of module item objects containing details like title, type, and URLs. Use this when you need to access specific learning materials, assignments, or other content within a module.",
-    {
-      course_id: z.string().describe("The Canvas course ID"),
-      module_id: z.string().describe("The Canvas module ID")
-    },
+    z.object({
+      course_id: z.string().describe("The Canvas course ID (required)"),
+      module_id: z.string().describe("The Canvas module ID (required)")
+    }).describe("Input object for get_module_items. All fields are required unless marked optional."),
     async ({ course_id, module_id }) => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Provide CANVAS_API_KEY to use get_module_items." }]
+          };
+        }
         const items = await canvasApi.getModuleItems(course_id, module_id);
         return {
           content: [{ 
@@ -115,7 +136,8 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving module items" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 4: Get file URL
@@ -128,6 +150,11 @@ export default function createStatelessServer({
     },
     async ({ course_id, file_id }) => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Provide CANVAS_API_KEY to use get_file_url." }]
+          };
+        }
         const url = await canvasApi.getFileUrl(course_id, file_id);
         return {
           content: [{ 
@@ -141,7 +168,8 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving file URL" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 5: Get course assignments
@@ -154,6 +182,11 @@ export default function createStatelessServer({
     },
     async ({ course_id, bucket }) => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Provide CANVAS_API_KEY to use get_course_assignments." }]
+          };
+        }
         const assignments = await canvasApi.getCourseAssignments(course_id, bucket);
         return {
           content: [{ 
@@ -167,7 +200,8 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving assignments" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 6: Get assignments by course name
@@ -180,6 +214,11 @@ export default function createStatelessServer({
     },
     async ({ course_name, bucket }) => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Provide CANVAS_API_KEY to use get_assignments_by_course_name." }]
+          };
+        }
         const assignments = await canvasApi.getAssignmentsByCourseName(course_name, bucket);
         return {
           content: [{ 
@@ -193,7 +232,8 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving assignments" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // Tool 7: Get Canvas courses (alias)
@@ -203,6 +243,11 @@ export default function createStatelessServer({
     {},
     async () => {
       try {
+        if (!hasCanvasConfig) {
+          return {
+            content: [{ type: "text", text: "Canvas is not configured. Set CANVAS_API_KEY to enable Canvas tools." }]
+          };
+        }
         const courses = await canvasApi.getCourses();
         return {
           content: [{ 
@@ -216,7 +261,8 @@ export default function createStatelessServer({
           content: [{ type: "text", text: "Error retrieving courses" }]
         };
       }
-    }
+    },
+    { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
   );
 
   // ==== GRADESCOPE API TOOLS ====
@@ -242,7 +288,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error retrieving Gradescope courses" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
     );
 
     // Tool 9: Get Gradescope course by name
@@ -267,7 +314,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error retrieving Gradescope course" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
     );
 
     // Tool 10: Get Gradescope assignments
@@ -292,7 +340,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error retrieving Gradescope assignments" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
     );
 
     // Tool 11: Get Gradescope assignment by name
@@ -318,7 +367,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error retrieving Gradescope assignment" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
     );
 
     // ==== UTILITY TOOLS ====
@@ -343,7 +393,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error retrieving cache statistics" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true } }
     );
 
     // Clear cache tool
@@ -366,7 +417,8 @@ export default function createStatelessServer({
             content: [{ type: "text", text: "Error clearing cache" }]
           };
         }
-      }
+      },
+      { annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } }
     );
 
   } else {
