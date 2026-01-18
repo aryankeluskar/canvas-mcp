@@ -1,10 +1,14 @@
 /**
  * Canvas MCP - Cloudflare Workers Entry Point
  * Remote MCP server for Canvas LMS and Gradescope
- * Uses Streamable HTTP transport (MCP 2025-03-26 spec)
+ * Uses Streamable HTTP transport
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { CanvasApi } from "./canvas-api.js";
 import { GradescopeApi } from "./gradescope-api.js";
@@ -20,18 +24,20 @@ export interface Env {
   DEBUG?: string;
 }
 
-// Create and configure the MCP server
-function createMcpServer(env: Env): McpServer {
+// Tool definitions with handlers
+interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, any>;
+  handler: (args: any) => Promise<{ content: Array<{ type: string; text: string }> }>;
+}
+
+// Create tools for the MCP server
+function createTools(env: Env): ToolDefinition[] {
   const debug = env.DEBUG === "true";
   const logger = new Logger(debug);
   const cache = new WorkerCache();
 
-  const server = new McpServer({
-    name: "Canvas and Gradescope MCP",
-    version: "1.1.0",
-  });
-
-  // Initialize Canvas API
   const canvasApi = new CanvasApi({
     apiKey: env.CANVAS_API_KEY || "",
     baseUrl: env.CANVAS_BASE_URL || "https://canvas.asu.edu",
@@ -41,7 +47,6 @@ function createMcpServer(env: Env): McpServer {
 
   const hasCanvasConfig = Boolean(env.CANVAS_API_KEY);
 
-  // Initialize Gradescope API if credentials provided
   let gradescopeApi: GradescopeApi | null = null;
   if (env.GRADESCOPE_EMAIL && env.GRADESCOPE_PASSWORD) {
     gradescopeApi = new GradescopeApi({
@@ -52,207 +57,203 @@ function createMcpServer(env: Env): McpServer {
     });
   }
 
-  // ==== CANVAS API TOOLS ====
-
-  server.tool(
-    "get_courses",
-    "Use this tool to retrieve all available Canvas courses for the current user. Returns a dictionary mapping course names to their corresponding IDs.",
-    {},
-    async () => {
-      if (!hasCanvasConfig) {
-        return {
-          content: [{ type: "text", text: "Canvas is not configured. Set CANVAS_API_KEY to enable Canvas tools." }],
-        };
-      }
-      const courses = await canvasApi.getCourses();
-      return {
-        content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve courses" }],
-      };
-    }
-  );
-
-  server.tool(
-    "get_modules",
-    "Retrieve all modules within a specific Canvas course.",
-    { course_id: z.string().describe("The Canvas course ID") },
-    async ({ course_id }) => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const modules = await canvasApi.getModules(course_id);
-      return {
-        content: [{ type: "text", text: modules ? JSON.stringify(modules, null, 2) : "Failed to retrieve modules" }],
-      };
-    }
-  );
-
-  server.tool(
-    "get_module_items",
-    "Retrieve all items within a specific module in a Canvas course.",
+  const tools: ToolDefinition[] = [
     {
-      course_id: z.string().describe("The Canvas course ID"),
-      module_id: z.string().describe("The Canvas module ID"),
+      name: "get_courses",
+      description: "Retrieve all available Canvas courses for the current user. Returns a dictionary mapping course names to their corresponding IDs.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      handler: async () => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured. Set CANVAS_API_KEY to enable Canvas tools." }] };
+        }
+        const courses = await canvasApi.getCourses();
+        return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve courses" }] };
+      },
     },
-    async ({ course_id, module_id }) => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const items = await canvasApi.getModuleItems(course_id, module_id);
-      return {
-        content: [{ type: "text", text: items ? JSON.stringify(items, null, 2) : "Failed to retrieve module items" }],
-      };
-    }
-  );
-
-  server.tool(
-    "get_file_url",
-    "Get the direct download URL for a file stored in Canvas.",
     {
-      course_id: z.string().describe("The Canvas course ID"),
-      file_id: z.string().describe("The Canvas file ID"),
+      name: "get_modules",
+      description: "Retrieve all modules within a specific Canvas course.",
+      inputSchema: {
+        type: "object",
+        properties: { course_id: { type: "string", description: "The Canvas course ID" } },
+        required: ["course_id"],
+      },
+      handler: async ({ course_id }: { course_id: string }) => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const modules = await canvasApi.getModules(course_id);
+        return { content: [{ type: "text", text: modules ? JSON.stringify(modules, null, 2) : "Failed to retrieve modules" }] };
+      },
     },
-    async ({ course_id, file_id }) => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const url = await canvasApi.getFileUrl(course_id, file_id);
-      return { content: [{ type: "text", text: url || "Failed to retrieve file URL" }] };
-    }
-  );
-
-  server.tool(
-    "get_course_assignments",
-    "Retrieve all assignments for a specific Canvas course.",
     {
-      course_id: z.string().describe("The Canvas course ID"),
-      bucket: z.string().optional().describe("Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future"),
+      name: "get_module_items",
+      description: "Retrieve all items within a specific module in a Canvas course.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          course_id: { type: "string", description: "The Canvas course ID" },
+          module_id: { type: "string", description: "The Canvas module ID" },
+        },
+        required: ["course_id", "module_id"],
+      },
+      handler: async ({ course_id, module_id }: { course_id: string; module_id: string }) => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const items = await canvasApi.getModuleItems(course_id, module_id);
+        return { content: [{ type: "text", text: items ? JSON.stringify(items, null, 2) : "Failed to retrieve module items" }] };
+      },
     },
-    async ({ course_id, bucket }) => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const assignments = await canvasApi.getCourseAssignments(course_id, bucket);
-      return {
-        content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }],
-      };
-    }
-  );
-
-  server.tool(
-    "get_assignments_by_course_name",
-    "Retrieve all assignments for a Canvas course using its name.",
     {
-      course_name: z.string().describe("The course name (partial matches supported)"),
-      bucket: z.string().optional().describe("Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future"),
+      name: "get_file_url",
+      description: "Get the direct download URL for a file stored in Canvas.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          course_id: { type: "string", description: "The Canvas course ID" },
+          file_id: { type: "string", description: "The Canvas file ID" },
+        },
+        required: ["course_id", "file_id"],
+      },
+      handler: async ({ course_id, file_id }: { course_id: string; file_id: string }) => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const url = await canvasApi.getFileUrl(course_id, file_id);
+        return { content: [{ type: "text", text: url || "Failed to retrieve file URL" }] };
+      },
     },
-    async ({ course_name, bucket }) => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const assignments = await canvasApi.getAssignmentsByCourseName(course_name, bucket);
-      return {
-        content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }],
-      };
-    }
-  );
+    {
+      name: "get_course_assignments",
+      description: "Retrieve all assignments for a specific Canvas course.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          course_id: { type: "string", description: "The Canvas course ID" },
+          bucket: { type: "string", description: "Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future" },
+        },
+        required: ["course_id"],
+      },
+      handler: async ({ course_id, bucket }: { course_id: string; bucket?: string }) => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const assignments = await canvasApi.getCourseAssignments(course_id, bucket);
+        return { content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }] };
+      },
+    },
+    {
+      name: "get_assignments_by_course_name",
+      description: "Retrieve all assignments for a Canvas course using its name.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          course_name: { type: "string", description: "The course name (partial matches supported)" },
+          bucket: { type: "string", description: "Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future" },
+        },
+        required: ["course_name"],
+      },
+      handler: async ({ course_name, bucket }: { course_name: string; bucket?: string }) => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const assignments = await canvasApi.getAssignmentsByCourseName(course_name, bucket);
+        return { content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }] };
+      },
+    },
+    {
+      name: "get_canvas_courses",
+      description: "Alias for get_courses - retrieve all Canvas courses.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      handler: async () => {
+        if (!hasCanvasConfig) {
+          return { content: [{ type: "text", text: "Canvas is not configured." }] };
+        }
+        const courses = await canvasApi.getCourses();
+        return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve courses" }] };
+      },
+    },
+    {
+      name: "get_cache_stats",
+      description: "Get cache statistics for debugging.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      handler: async () => {
+        const stats = cache.getStats();
+        return { content: [{ type: "text", text: JSON.stringify(stats, null, 2) }] };
+      },
+    },
+    {
+      name: "clear_cache",
+      description: "Clear all cached data.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      handler: async () => {
+        cache.clear();
+        return { content: [{ type: "text", text: "Cache cleared successfully" }] };
+      },
+    },
+  ];
 
-  server.tool(
-    "get_canvas_courses",
-    "Alias for get_courses - retrieve all Canvas courses.",
-    {},
-    async () => {
-      if (!hasCanvasConfig) {
-        return { content: [{ type: "text", text: "Canvas is not configured." }] };
-      }
-      const courses = await canvasApi.getCourses();
-      return {
-        content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve courses" }],
-      };
-    }
-  );
-
-  // ==== GRADESCOPE API TOOLS ====
-
+  // Add Gradescope tools if configured
   if (gradescopeApi) {
     const gsApi = gradescopeApi;
-
-    server.tool(
-      "get_gradescope_courses",
-      "Retrieve all Gradescope courses for the current user.",
-      {},
-      async () => {
-        const courses = await gsApi.getGradescopeCourses();
-        return {
-          content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve Gradescope courses" }],
-        };
-      }
-    );
-
-    server.tool(
-      "get_gradescope_course_by_name",
-      "Find a Gradescope course by name.",
-      { course_name: z.string().describe("The course name to search for") },
-      async ({ course_name }) => {
-        const course = await gsApi.getGradescopeCourseByName(course_name);
-        return {
-          content: [{ type: "text", text: course ? JSON.stringify(course, null, 2) : "Course not found" }],
-        };
-      }
-    );
-
-    server.tool(
-      "get_gradescope_assignments",
-      "Retrieve all assignments for a Gradescope course.",
-      { course_id: z.string().describe("The Gradescope course ID") },
-      async ({ course_id }) => {
-        const assignments = await gsApi.getGradescopeAssignments(course_id);
-        return {
-          content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }],
-        };
-      }
-    );
-
-    server.tool(
-      "get_gradescope_assignment_by_name",
-      "Find a Gradescope assignment by name.",
+    tools.push(
       {
-        course_id: z.string().describe("The Gradescope course ID"),
-        assignment_name: z.string().describe("The assignment name to search for"),
+        name: "get_gradescope_courses",
+        description: "Retrieve all Gradescope courses for the current user.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+        handler: async () => {
+          const courses = await gsApi.getGradescopeCourses();
+          return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve Gradescope courses" }] };
+        },
       },
-      async ({ course_id, assignment_name }) => {
-        const assignment = await gsApi.getGradescopeAssignmentByName(course_id, assignment_name);
-        return {
-          content: [{ type: "text", text: assignment ? JSON.stringify(assignment, null, 2) : "Assignment not found" }],
-        };
+      {
+        name: "get_gradescope_course_by_name",
+        description: "Find a Gradescope course by name.",
+        inputSchema: {
+          type: "object",
+          properties: { course_name: { type: "string", description: "The course name to search for" } },
+          required: ["course_name"],
+        },
+        handler: async ({ course_name }: { course_name: string }) => {
+          const course = await gsApi.getGradescopeCourseByName(course_name);
+          return { content: [{ type: "text", text: course ? JSON.stringify(course, null, 2) : "Course not found" }] };
+        },
+      },
+      {
+        name: "get_gradescope_assignments",
+        description: "Retrieve all assignments for a Gradescope course.",
+        inputSchema: {
+          type: "object",
+          properties: { course_id: { type: "string", description: "The Gradescope course ID" } },
+          required: ["course_id"],
+        },
+        handler: async ({ course_id }: { course_id: string }) => {
+          const assignments = await gsApi.getGradescopeAssignments(course_id);
+          return { content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }] };
+        },
+      },
+      {
+        name: "get_gradescope_assignment_by_name",
+        description: "Find a Gradescope assignment by name.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            course_id: { type: "string", description: "The Gradescope course ID" },
+            assignment_name: { type: "string", description: "The assignment name to search for" },
+          },
+          required: ["course_id", "assignment_name"],
+        },
+        handler: async ({ course_id, assignment_name }: { course_id: string; assignment_name: string }) => {
+          const assignment = await gsApi.getGradescopeAssignmentByName(course_id, assignment_name);
+          return { content: [{ type: "text", text: assignment ? JSON.stringify(assignment, null, 2) : "Assignment not found" }] };
+        },
       }
     );
   }
 
-  // ==== UTILITY TOOLS ====
-
-  server.tool(
-    "get_cache_stats",
-    "Get cache statistics for debugging.",
-    {},
-    async () => {
-      const stats = cache.getStats();
-      return { content: [{ type: "text", text: JSON.stringify(stats, null, 2) }] };
-    }
-  );
-
-  server.tool(
-    "clear_cache",
-    "Clear all cached data.",
-    {},
-    async () => {
-      cache.clear();
-      return { content: [{ type: "text", text: "Cache cleared successfully" }] };
-    }
-  );
-
-  logger.log(`Canvas MCP Server initialized with ${gradescopeApi ? "Canvas and Gradescope" : "Canvas only"} support`);
-
-  return server;
+  logger.log(`Canvas MCP Server: ${tools.length} tools available`);
+  return tools;
 }
 
 // Smithery Server Card
@@ -278,11 +279,14 @@ const SERVER_CARD = {
   prompts: [],
 };
 
-// Session storage for SSE connections
-const sessions = new Map<string, { server: McpServer; messages: any[] }>();
+// Session storage
+interface Session {
+  tools: ToolDefinition[];
+}
+const sessions = new Map<string, Session>();
 
-// Handle JSON-RPC message
-async function handleMessage(server: McpServer, message: any): Promise<any> {
+// Handle JSON-RPC messages
+async function handleMessage(session: Session, message: any): Promise<any> {
   const { method, params, id } = message;
 
   try {
@@ -298,13 +302,39 @@ async function handleMessage(server: McpServer, message: any): Promise<any> {
       };
     }
 
+    if (method === "notifications/initialized") {
+      // Client acknowledges initialization - no response needed for notifications
+      return null;
+    }
+
     if (method === "tools/list") {
-      const tools = await server.server.listTools();
-      return { jsonrpc: "2.0", id, result: tools };
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          tools: session.tools.map((t) => ({
+            name: t.name,
+            description: t.description,
+            inputSchema: t.inputSchema,
+          })),
+        },
+      };
     }
 
     if (method === "tools/call") {
-      const result = await server.server.callTool(params.name, params.arguments || {});
+      const toolName = params?.name;
+      const toolArgs = params?.arguments || {};
+      
+      const tool = session.tools.find((t) => t.name === toolName);
+      if (!tool) {
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32602, message: `Unknown tool: ${toolName}` },
+        };
+      }
+
+      const result = await tool.handler(toolArgs);
       return { jsonrpc: "2.0", id, result };
     }
 
@@ -319,6 +349,7 @@ async function handleMessage(server: McpServer, message: any): Promise<any> {
       error: { code: -32601, message: `Method not found: ${method}` },
     };
   } catch (error: any) {
+    console.error(`Error handling ${method}:`, error);
     return {
       jsonrpc: "2.0",
       id,
@@ -365,26 +396,22 @@ export default {
       );
     }
 
-    // MCP Streamable HTTP endpoint
+    // MCP endpoints
     if (url.pathname === "/mcp" || url.pathname === "/sse") {
-      // GET - SSE stream for notifications (optional, we return empty for now)
+      // GET - SSE stream
       if (request.method === "GET") {
         const sessionId = request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
-        
-        // Create new session if needed
+
         if (!sessions.has(sessionId)) {
-          sessions.set(sessionId, { server: createMcpServer(env), messages: [] });
+          sessions.set(sessionId, { tools: createTools(env) });
         }
 
-        // Return SSE stream
         const { readable, writable } = new TransformStream();
         const writer = writable.getWriter();
         const encoder = new TextEncoder();
 
-        // Send initial connection event
         writer.write(encoder.encode(`event: open\ndata: {"sessionId":"${sessionId}"}\n\n`));
 
-        // Keep connection alive with periodic pings
         const pingInterval = setInterval(async () => {
           try {
             await writer.write(encoder.encode(`: ping\n\n`));
@@ -393,10 +420,9 @@ export default {
           }
         }, 30000);
 
-        // Clean up on close
         ctx.waitUntil(
           (async () => {
-            await new Promise((resolve) => setTimeout(resolve, 300000)); // 5 min timeout
+            await new Promise((resolve) => setTimeout(resolve, 300000));
             clearInterval(pingInterval);
             writer.close();
           })()
@@ -413,24 +439,25 @@ export default {
         });
       }
 
-      // POST - Handle JSON-RPC messages
+      // POST - JSON-RPC
       if (request.method === "POST") {
         let sessionId = request.headers.get("Mcp-Session-Id");
-        
-        // Create new session if needed
+
         if (!sessionId || !sessions.has(sessionId)) {
           sessionId = crypto.randomUUID();
-          sessions.set(sessionId, { server: createMcpServer(env), messages: [] });
+          sessions.set(sessionId, { tools: createTools(env) });
         }
 
         const session = sessions.get(sessionId)!;
         const body = await request.json();
 
-        // Handle single message or batch
         const messages = Array.isArray(body) ? body : [body];
-        const responses = await Promise.all(messages.map((msg) => handleMessage(session.server, msg)));
+        const responses = await Promise.all(messages.map((msg) => handleMessage(session, msg)));
+        
+        // Filter out null responses (notifications don't need responses)
+        const filteredResponses = responses.filter((r) => r !== null);
 
-        const result = Array.isArray(body) ? responses : responses[0];
+        const result = Array.isArray(body) ? filteredResponses : filteredResponses[0];
 
         return new Response(JSON.stringify(result), {
           headers: {
