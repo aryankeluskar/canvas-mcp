@@ -1,6 +1,6 @@
 /**
  * Caching system for Canvas and Gradescope API responses
- * Replicates the Python implementation's TTL-based caching
+ * Compatible with Cloudflare Workers runtime
  */
 
 interface CacheEntry<T> {
@@ -20,19 +20,24 @@ interface CacheConfig {
   gradescope_submissions: number;
 }
 
-// Cache TTL configuration in seconds (matching Python implementation)
+// Cache TTL configuration in seconds
 const CACHE_TTL: CacheConfig = {
-  courses: 3600,        // 1 hour
-  modules: 1800,        // 30 minutes  
-  module_items: 1800,   // 30 minutes
-  file_urls: 3600,      // 1 hour
-  assignments: 1800,    // 30 minutes
-  gradescope_courses: 3600,     // 1 hour
+  courses: 3600, // 1 hour
+  modules: 1800, // 30 minutes
+  module_items: 1800, // 30 minutes
+  file_urls: 3600, // 1 hour
+  assignments: 1800, // 30 minutes
+  gradescope_courses: 3600, // 1 hour
   gradescope_assignments: 1800, // 30 minutes
-  gradescope_submissions: 1800  // 30 minutes
+  gradescope_submissions: 1800, // 30 minutes
 };
 
-class Cache {
+/**
+ * In-memory cache for Workers
+ * Note: This cache is per-isolate and will be cleared on worker restart
+ * For persistent caching, use KV namespace
+ */
+export class WorkerCache {
   private storage: Map<string, CacheEntry<any>> = new Map();
 
   /**
@@ -41,7 +46,7 @@ class Cache {
   get<T>(cacheType: keyof CacheConfig, key?: string): T | null {
     const cacheKey = key ? `${cacheType}_${key}` : cacheType;
     const entry = this.storage.get(cacheKey);
-    
+
     if (!entry) {
       return null;
     }
@@ -67,7 +72,7 @@ class Cache {
     this.storage.set(cacheKey, {
       value,
       timestamp,
-      ttl
+      ttl,
     });
   }
 
@@ -83,14 +88,14 @@ class Cache {
    */
   clearType(cacheType: keyof CacheConfig): void {
     const keysToDelete: string[] = [];
-    
+
     for (const key of this.storage.keys()) {
       if (key.startsWith(cacheType)) {
         keysToDelete.push(key);
       }
     }
-    
-    keysToDelete.forEach(key => this.storage.delete(key));
+
+    keysToDelete.forEach((key) => this.storage.delete(key));
   }
 
   /**
@@ -98,19 +103,19 @@ class Cache {
    */
   getStats(): { totalEntries: number; cacheTypes: Record<string, number> } {
     const cacheTypes: Record<string, number> = {};
-    
+
     for (const key of this.storage.keys()) {
-      const type = key.split('_')[0];
+      const type = key.split("_")[0];
       cacheTypes[type] = (cacheTypes[type] || 0) + 1;
     }
 
     return {
       totalEntries: this.storage.size,
-      cacheTypes
+      cacheTypes,
     };
   }
 }
 
-// Export singleton instance
-export const cache = new Cache();
+// Legacy export for backwards compatibility with old code
+export const cache = new WorkerCache();
 export type { CacheConfig };

@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "canvas-mcp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-13",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Environment variables (set secrets via `wrangler secret put`)
+  // CANVAS_API_KEY - Canvas API key (secret)
+  // CANVAS_BASE_URL - Canvas base URL (optional, defaults to https://canvas.asu.edu)
+  // GRADESCOPE_EMAIL - Gradescope email (secret, optional)
+  // GRADESCOPE_PASSWORD - Gradescope password (secret, optional)
+
+  "vars": {
+    "CANVAS_BASE_URL": "https://canvas.asu.edu"
+  },
+
+  // Optional: KV namespace for persistent caching (uncomment and set up if needed)
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "CANVAS_CACHE",
+  //     "id": "<YOUR_KV_NAMESPACE_ID>"
+  //   }
+  // ],
+
+  "observability": {
+    "enabled": true
+  }
+}
