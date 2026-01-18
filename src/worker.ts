@@ -24,6 +24,45 @@ export interface Env {
   DEBUG?: string;
 }
 
+// Runtime config (merged from env vars and request params)
+interface RuntimeConfig {
+  canvasApiKey: string;
+  canvasBaseUrl: string;
+  gradescopeEmail?: string;
+  gradescopePassword?: string;
+  debug: boolean;
+}
+
+// Extract config from request (Smithery passes config via query params or headers)
+function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
+  const url = new URL(request.url);
+  
+  // Try query parameters first (Smithery session config)
+  const canvasApiKey = url.searchParams.get("canvasApiKey") || 
+                       url.searchParams.get("canvas_api_key") ||
+                       request.headers.get("x-canvas-api-key") ||
+                       env.CANVAS_API_KEY || "";
+  
+  const canvasBaseUrl = url.searchParams.get("canvasBaseUrl") || 
+                        url.searchParams.get("canvas_base_url") ||
+                        request.headers.get("x-canvas-base-url") ||
+                        env.CANVAS_BASE_URL || "https://canvas.asu.edu";
+  
+  const gradescopeEmail = url.searchParams.get("gradescopeEmail") || 
+                          url.searchParams.get("gradescope_email") ||
+                          request.headers.get("x-gradescope-email") ||
+                          env.GRADESCOPE_EMAIL;
+  
+  const gradescopePassword = url.searchParams.get("gradescopePassword") || 
+                             url.searchParams.get("gradescope_password") ||
+                             request.headers.get("x-gradescope-password") ||
+                             env.GRADESCOPE_PASSWORD;
+  
+  const debug = url.searchParams.get("debug") === "true" || env.DEBUG === "true";
+
+  return { canvasApiKey, canvasBaseUrl, gradescopeEmail, gradescopePassword, debug };
+}
+
 // Tool definitions with handlers
 interface ToolDefinition {
   name: string;
@@ -33,25 +72,24 @@ interface ToolDefinition {
 }
 
 // Create tools for the MCP server
-function createTools(env: Env): ToolDefinition[] {
-  const debug = env.DEBUG === "true";
-  const logger = new Logger(debug);
+function createTools(config: RuntimeConfig): ToolDefinition[] {
+  const logger = new Logger(config.debug);
   const cache = new WorkerCache();
 
   const canvasApi = new CanvasApi({
-    apiKey: env.CANVAS_API_KEY || "",
-    baseUrl: env.CANVAS_BASE_URL || "https://canvas.asu.edu",
+    apiKey: config.canvasApiKey,
+    baseUrl: config.canvasBaseUrl,
     logger,
     cache,
   });
 
-  const hasCanvasConfig = Boolean(env.CANVAS_API_KEY);
+  const hasCanvasConfig = Boolean(config.canvasApiKey);
 
   let gradescopeApi: GradescopeApi | null = null;
-  if (env.GRADESCOPE_EMAIL && env.GRADESCOPE_PASSWORD) {
+  if (config.gradescopeEmail && config.gradescopePassword) {
     gradescopeApi = new GradescopeApi({
-      email: env.GRADESCOPE_EMAIL,
-      password: env.GRADESCOPE_PASSWORD,
+      email: config.gradescopeEmail,
+      password: config.gradescopePassword,
       logger,
       cache,
     });
@@ -360,7 +398,7 @@ async function handleMessage(session: Session, message: any): Promise<any> {
 
 // Export the Worker handler
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: { waitUntil: (promise: Promise<any>) => void }): Promise<Response> {
     const url = new URL(request.url);
 
     // CORS headers
@@ -398,12 +436,15 @@ export default {
 
     // MCP endpoints
     if (url.pathname === "/mcp" || url.pathname === "/sse") {
+      // Get runtime config from request (supports Smithery session config)
+      const config = getConfigFromRequest(request, env);
+      
       // GET - SSE stream
       if (request.method === "GET") {
         const sessionId = request.headers.get("Mcp-Session-Id") || crypto.randomUUID();
 
         if (!sessions.has(sessionId)) {
-          sessions.set(sessionId, { tools: createTools(env) });
+          sessions.set(sessionId, { tools: createTools(config) });
         }
 
         const { readable, writable } = new TransformStream();
@@ -445,7 +486,7 @@ export default {
 
         if (!sessionId || !sessions.has(sessionId)) {
           sessionId = crypto.randomUUID();
-          sessions.set(sessionId, { tools: createTools(env) });
+          sessions.set(sessionId, { tools: createTools(config) });
         }
 
         const session = sessions.get(sessionId)!;
