@@ -421,8 +421,8 @@ export default {
       });
     }
 
-    // Health check
-    if (url.pathname === "/" || url.pathname === "/health") {
+    // Health check (GET only)
+    if ((url.pathname === "/" || url.pathname === "/health") && request.method === "GET") {
       return new Response(
         JSON.stringify({
           name: "Canvas MCP Server",
@@ -434,8 +434,8 @@ export default {
       );
     }
 
-    // MCP endpoints
-    if (url.pathname === "/mcp" || url.pathname === "/sse") {
+    // MCP endpoints (also handle root path for Smithery proxy compatibility)
+    if (url.pathname === "/mcp" || url.pathname === "/sse" || url.pathname === "/") {
       // Get runtime config from request (supports Smithery session config)
       const config = getConfigFromRequest(request, env);
       
