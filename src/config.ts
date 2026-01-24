@@ -1,37 +1,35 @@
 /**
  * Configuration management for Canvas MCP
  * Compatible with Cloudflare Workers runtime and Smithery
+ * 
+ * Smithery automatically reads config from query params matching field names
+ * See: https://smithery.ai/docs/build/session-config
  */
 
 import { z } from "zod";
 
-// Configuration schema validation for Smithery
-// See: https://smithery.ai/docs/build/session-config
+// Configuration schema for Smithery session config
+// Field names become query parameter names automatically
 export const configSchema = z.object({
   canvasApiKey: z
     .string()
-    .describe("Your Canvas API key (Personal Access Token)")
-    .meta({ "x-from": { query: "canvasApiKey" } }),
+    .describe("Your Canvas API key (Personal Access Token from Canvas settings)"),
   canvasBaseUrl: z
     .string()
     .default("https://canvas.asu.edu")
-    .describe("Canvas base URL (e.g., https://canvas.instructure.com)")
-    .meta({ "x-from": { query: "canvasBaseUrl" } }),
+    .describe("Your Canvas instance URL (e.g., https://canvas.instructure.com)"),
   gradescopeEmail: z
     .string()
     .optional()
-    .describe("Gradescope email (optional)")
-    .meta({ "x-from": { query: "gradescopeEmail" } }),
+    .describe("Gradescope login email (optional)"),
   gradescopePassword: z
     .string()
     .optional()
-    .describe("Gradescope password (optional)")
-    .meta({ "x-from": { query: "gradescopePassword" } }),
+    .describe("Gradescope password (optional)"),
   debug: z
     .boolean()
     .default(false)
-    .describe("Enable debug logging")
-    .meta({ "x-from": { query: "debug" } }),
+    .describe("Enable debug logging"),
 });
 
 export type Config = z.infer<typeof configSchema>;
