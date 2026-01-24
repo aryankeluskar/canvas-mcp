@@ -98,11 +98,21 @@ function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
   return { canvasApiKey, canvasBaseUrl, gradescopeEmail, gradescopePassword, debug };
 }
 
+// Tool annotations per MCP spec
+interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
 // Tool definitions with handlers
 interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, any>;
+  annotations?: ToolAnnotations;
   handler: (args: any) => Promise<{ content: Array<{ type: string; text: string }> }>;
 }
 
@@ -135,6 +145,13 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       name: "get_courses",
       description: "Retrieve all available Canvas courses for the current user. Returns a dictionary mapping course names to their corresponding IDs.",
       inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: {
+        title: "Get Canvas Courses",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       handler: async () => {
         if (!hasCanvasConfig) {
           return { content: [{ type: "text", text: "Canvas is not configured. Set CANVAS_API_KEY to enable Canvas tools." }] };
@@ -148,8 +165,20 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       description: "Retrieve all modules within a specific Canvas course.",
       inputSchema: {
         type: "object",
-        properties: { course_id: { type: "string", description: "The Canvas course ID" } },
+        properties: { 
+          course_id: { 
+            type: "string", 
+            description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." 
+          } 
+        },
         required: ["course_id"],
+      },
+      annotations: {
+        title: "Get Course Modules",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
       handler: async ({ course_id }: { course_id: string }) => {
         if (!hasCanvasConfig) {
@@ -165,10 +194,23 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       inputSchema: {
         type: "object",
         properties: {
-          course_id: { type: "string", description: "The Canvas course ID" },
-          module_id: { type: "string", description: "The Canvas module ID" },
+          course_id: { 
+            type: "string", 
+            description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." 
+          },
+          module_id: { 
+            type: "string", 
+            description: "The unique identifier for the module within the course. Can be found via get_modules." 
+          },
         },
         required: ["course_id", "module_id"],
+      },
+      annotations: {
+        title: "Get Module Items",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
       handler: async ({ course_id, module_id }: { course_id: string; module_id: string }) => {
         if (!hasCanvasConfig) {
@@ -184,10 +226,23 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       inputSchema: {
         type: "object",
         properties: {
-          course_id: { type: "string", description: "The Canvas course ID" },
-          file_id: { type: "string", description: "The Canvas file ID" },
+          course_id: { 
+            type: "string", 
+            description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." 
+          },
+          file_id: { 
+            type: "string", 
+            description: "The unique identifier for the file. Can be found in module items or file listings." 
+          },
         },
         required: ["course_id", "file_id"],
+      },
+      annotations: {
+        title: "Get File Download URL",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
       handler: async ({ course_id, file_id }: { course_id: string; file_id: string }) => {
         if (!hasCanvasConfig) {
@@ -203,10 +258,23 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       inputSchema: {
         type: "object",
         properties: {
-          course_id: { type: "string", description: "The Canvas course ID" },
-          bucket: { type: "string", description: "Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future" },
+          course_id: { 
+            type: "string", 
+            description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." 
+          },
+          bucket: { 
+            type: "string", 
+            description: "Optional filter for assignment status. Valid values: past, overdue, undated, ungraded, unsubmitted, upcoming, future." 
+          },
         },
         required: ["course_id"],
+      },
+      annotations: {
+        title: "Get Course Assignments",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
       handler: async ({ course_id, bucket }: { course_id: string; bucket?: string }) => {
         if (!hasCanvasConfig) {
@@ -222,10 +290,23 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       inputSchema: {
         type: "object",
         properties: {
-          course_name: { type: "string", description: "The course name (partial matches supported)" },
-          bucket: { type: "string", description: "Filter: past, overdue, undated, ungraded, unsubmitted, upcoming, future" },
+          course_name: { 
+            type: "string", 
+            description: "The name of the course to search for. Partial matches are supported (e.g., 'Biology' will match 'Introduction to Biology')." 
+          },
+          bucket: { 
+            type: "string", 
+            description: "Optional filter for assignment status. Valid values: past, overdue, undated, ungraded, unsubmitted, upcoming, future." 
+          },
         },
         required: ["course_name"],
+      },
+      annotations: {
+        title: "Get Assignments by Course Name",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
       },
       handler: async ({ course_name, bucket }: { course_name: string; bucket?: string }) => {
         if (!hasCanvasConfig) {
@@ -239,6 +320,13 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       name: "get_canvas_courses",
       description: "Alias for get_courses - retrieve all Canvas courses.",
       inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: {
+        title: "Get Canvas Courses (Alias)",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       handler: async () => {
         if (!hasCanvasConfig) {
           return { content: [{ type: "text", text: "Canvas is not configured." }] };
@@ -251,6 +339,13 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       name: "get_cache_stats",
       description: "Get cache statistics for debugging.",
       inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: {
+        title: "Get Cache Statistics",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       handler: async () => {
         const stats = cache.getStats();
         return { content: [{ type: "text", text: JSON.stringify(stats, null, 2) }] };
@@ -260,6 +355,13 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
       name: "clear_cache",
       description: "Clear all cached data.",
       inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: {
+        title: "Clear Cache",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       handler: async () => {
         cache.clear();
         return { content: [{ type: "text", text: "Cache cleared successfully" }] };
@@ -275,6 +377,13 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         name: "get_gradescope_courses",
         description: "Retrieve all Gradescope courses for the current user.",
         inputSchema: { type: "object", properties: {}, required: [] },
+        annotations: {
+          title: "Get Gradescope Courses",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
         handler: async () => {
           const courses = await gsApi.getGradescopeCourses();
           return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve Gradescope courses" }] };
@@ -285,8 +394,20 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         description: "Find a Gradescope course by name.",
         inputSchema: {
           type: "object",
-          properties: { course_name: { type: "string", description: "The course name to search for" } },
+          properties: { 
+            course_name: { 
+              type: "string", 
+              description: "The name of the Gradescope course to search for. Partial matches are supported." 
+            } 
+          },
           required: ["course_name"],
+        },
+        annotations: {
+          title: "Find Gradescope Course by Name",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
         },
         handler: async ({ course_name }: { course_name: string }) => {
           const course = await gsApi.getGradescopeCourseByName(course_name);
@@ -298,8 +419,20 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         description: "Retrieve all assignments for a Gradescope course.",
         inputSchema: {
           type: "object",
-          properties: { course_id: { type: "string", description: "The Gradescope course ID" } },
+          properties: { 
+            course_id: { 
+              type: "string", 
+              description: "The unique identifier for the Gradescope course. Can be found via get_gradescope_courses or get_gradescope_course_by_name." 
+            } 
+          },
           required: ["course_id"],
+        },
+        annotations: {
+          title: "Get Gradescope Assignments",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
         },
         handler: async ({ course_id }: { course_id: string }) => {
           const assignments = await gsApi.getGradescopeAssignments(course_id);
@@ -312,10 +445,23 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         inputSchema: {
           type: "object",
           properties: {
-            course_id: { type: "string", description: "The Gradescope course ID" },
-            assignment_name: { type: "string", description: "The assignment name to search for" },
+            course_id: { 
+              type: "string", 
+              description: "The unique identifier for the Gradescope course. Can be found via get_gradescope_courses or get_gradescope_course_by_name." 
+            },
+            assignment_name: { 
+              type: "string", 
+              description: "The name of the assignment to search for. Partial matches are supported." 
+            },
           },
           required: ["course_id", "assignment_name"],
+        },
+        annotations: {
+          title: "Find Gradescope Assignment by Name",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
         },
         handler: async ({ course_id, assignment_name }: { course_id: string; assignment_name: string }) => {
           const assignment = await gsApi.getGradescopeAssignmentByName(course_id, assignment_name);
@@ -340,7 +486,7 @@ const SERVER_CARD = {
     properties: {
       canvasApiKey: {
         type: "string",
-        description: "Your Canvas API key (Personal Access Token from Canvas settings)",
+        description: "Your Canvas API key (Personal Access Token from Canvas settings). Required for Canvas tools.",
         "x-from": { query: "canvasApiKey" },
       },
       canvasBaseUrl: {
@@ -351,34 +497,204 @@ const SERVER_CARD = {
       },
       gradescopeEmail: {
         type: "string",
-        description: "Gradescope login email (optional)",
+        description: "Gradescope login email. Required (along with password) for Gradescope tools.",
         "x-from": { query: "gradescopeEmail" },
       },
       gradescopePassword: {
         type: "string",
-        description: "Gradescope password (optional)",
+        description: "Gradescope password. Required (along with email) for Gradescope tools.",
         "x-from": { query: "gradescopePassword" },
       },
     },
     required: ["canvasApiKey"],
   },
   tools: [
-    { name: "get_courses", description: "Retrieve all Canvas courses", inputSchema: { type: "object", properties: {}, required: [] } },
-    { name: "get_modules", description: "Retrieve modules for a course", inputSchema: { type: "object", properties: { course_id: { type: "string" } }, required: ["course_id"] } },
-    { name: "get_module_items", description: "Retrieve items within a module", inputSchema: { type: "object", properties: { course_id: { type: "string" }, module_id: { type: "string" } }, required: ["course_id", "module_id"] } },
-    { name: "get_file_url", description: "Get download URL for a file", inputSchema: { type: "object", properties: { course_id: { type: "string" }, file_id: { type: "string" } }, required: ["course_id", "file_id"] } },
-    { name: "get_course_assignments", description: "Retrieve assignments for a course", inputSchema: { type: "object", properties: { course_id: { type: "string" }, bucket: { type: "string" } }, required: ["course_id"] } },
-    { name: "get_assignments_by_course_name", description: "Retrieve assignments by course name", inputSchema: { type: "object", properties: { course_name: { type: "string" }, bucket: { type: "string" } }, required: ["course_name"] } },
-    { name: "get_canvas_courses", description: "Alias for get_courses", inputSchema: { type: "object", properties: {}, required: [] } },
-    { name: "get_gradescope_courses", description: "Retrieve Gradescope courses", inputSchema: { type: "object", properties: {}, required: [] } },
-    { name: "get_gradescope_course_by_name", description: "Find Gradescope course by name", inputSchema: { type: "object", properties: { course_name: { type: "string" } }, required: ["course_name"] } },
-    { name: "get_gradescope_assignments", description: "Retrieve Gradescope assignments", inputSchema: { type: "object", properties: { course_id: { type: "string" } }, required: ["course_id"] } },
-    { name: "get_gradescope_assignment_by_name", description: "Find Gradescope assignment by name", inputSchema: { type: "object", properties: { course_id: { type: "string" }, assignment_name: { type: "string" } }, required: ["course_id", "assignment_name"] } },
-    { name: "get_cache_stats", description: "Get cache statistics", inputSchema: { type: "object", properties: {}, required: [] } },
-    { name: "clear_cache", description: "Clear cached data", inputSchema: { type: "object", properties: {}, required: [] } },
+    { 
+      name: "get_courses", 
+      description: "Retrieve all available Canvas courses for the current user. Returns a dictionary mapping course names to their corresponding IDs.", 
+      inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: { title: "Get Canvas Courses", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_modules", 
+      description: "Retrieve all modules within a specific Canvas course.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." } 
+        }, 
+        required: ["course_id"] 
+      },
+      annotations: { title: "Get Course Modules", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_module_items", 
+      description: "Retrieve all items within a specific module in a Canvas course.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." }, 
+          module_id: { type: "string", description: "The unique identifier for the module within the course. Can be found via get_modules." } 
+        }, 
+        required: ["course_id", "module_id"] 
+      },
+      annotations: { title: "Get Module Items", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_file_url", 
+      description: "Get the direct download URL for a file stored in Canvas.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." }, 
+          file_id: { type: "string", description: "The unique identifier for the file. Can be found in module items or file listings." } 
+        }, 
+        required: ["course_id", "file_id"] 
+      },
+      annotations: { title: "Get File Download URL", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_course_assignments", 
+      description: "Retrieve all assignments for a specific Canvas course.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Canvas course. Can be found in the course URL or via get_courses." }, 
+          bucket: { type: "string", description: "Optional filter for assignment status. Valid values: past, overdue, undated, ungraded, unsubmitted, upcoming, future." } 
+        }, 
+        required: ["course_id"] 
+      },
+      annotations: { title: "Get Course Assignments", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_assignments_by_course_name", 
+      description: "Retrieve all assignments for a Canvas course using its name.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_name: { type: "string", description: "The name of the course to search for. Partial matches are supported (e.g., 'Biology' will match 'Introduction to Biology')." }, 
+          bucket: { type: "string", description: "Optional filter for assignment status. Valid values: past, overdue, undated, ungraded, unsubmitted, upcoming, future." } 
+        }, 
+        required: ["course_name"] 
+      },
+      annotations: { title: "Get Assignments by Course Name", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_canvas_courses", 
+      description: "Alias for get_courses - retrieve all Canvas courses.", 
+      inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: { title: "Get Canvas Courses (Alias)", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_gradescope_courses", 
+      description: "Retrieve all Gradescope courses for the current user.", 
+      inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: { title: "Get Gradescope Courses", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_gradescope_course_by_name", 
+      description: "Find a Gradescope course by name.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_name: { type: "string", description: "The name of the Gradescope course to search for. Partial matches are supported." } 
+        }, 
+        required: ["course_name"] 
+      },
+      annotations: { title: "Find Gradescope Course by Name", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_gradescope_assignments", 
+      description: "Retrieve all assignments for a Gradescope course.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Gradescope course. Can be found via get_gradescope_courses or get_gradescope_course_by_name." } 
+        }, 
+        required: ["course_id"] 
+      },
+      annotations: { title: "Get Gradescope Assignments", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_gradescope_assignment_by_name", 
+      description: "Find a Gradescope assignment by name.", 
+      inputSchema: { 
+        type: "object", 
+        properties: { 
+          course_id: { type: "string", description: "The unique identifier for the Gradescope course. Can be found via get_gradescope_courses or get_gradescope_course_by_name." }, 
+          assignment_name: { type: "string", description: "The name of the assignment to search for. Partial matches are supported." } 
+        }, 
+        required: ["course_id", "assignment_name"] 
+      },
+      annotations: { title: "Find Gradescope Assignment by Name", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "get_cache_stats", 
+      description: "Get cache statistics for debugging purposes. Returns hit/miss counts and cache size.", 
+      inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: { title: "Get Cache Statistics", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    { 
+      name: "clear_cache", 
+      description: "Clear all cached data. Use this if you need fresh data from Canvas or Gradescope.", 
+      inputSchema: { type: "object", properties: {}, required: [] },
+      annotations: { title: "Clear Cache", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
   ],
-  resources: [],
-  prompts: [],
+  resources: [
+    {
+      uri: "canvas://courses",
+      name: "Canvas Courses",
+      description: "List of all Canvas courses for the authenticated user",
+      mimeType: "application/json",
+    },
+    {
+      uri: "gradescope://courses",
+      name: "Gradescope Courses",
+      description: "List of all Gradescope courses for the authenticated user",
+      mimeType: "application/json",
+    },
+  ],
+  prompts: [
+    {
+      name: "find_resources",
+      description: "Navigate the Canvas hierarchy to find course resources (files, pages, assignments). Follow the order: get_courses -> get_modules -> get_module_items -> get_file_url",
+      arguments: [
+        {
+          name: "resource_type",
+          description: "Type of resource to find: file, assignment, page, or all",
+          required: false,
+        },
+        {
+          name: "course_name",
+          description: "Optional course name to filter by",
+          required: false,
+        },
+      ],
+    },
+    {
+      name: "list_upcoming_assignments",
+      description: "Get a summary of upcoming assignments across all courses",
+      arguments: [
+        {
+          name: "days",
+          description: "Number of days to look ahead (default: 7)",
+          required: false,
+        },
+      ],
+    },
+    {
+      name: "course_overview",
+      description: "Get an overview of a specific course including modules and assignments",
+      arguments: [
+        {
+          name: "course_name",
+          description: "The name of the course to get an overview for",
+          required: true,
+        },
+      ],
+    },
+  ],
 };
 
 // Session storage
@@ -398,7 +714,11 @@ async function handleMessage(session: Session, message: any): Promise<any> {
         id,
         result: {
           protocolVersion: "2024-11-05",
-          capabilities: { tools: {} },
+          capabilities: { 
+            tools: {},
+            resources: {},
+            prompts: {},
+          },
           serverInfo: { name: "Canvas and Gradescope MCP", version: "1.1.0" },
         },
       };
@@ -418,6 +738,7 @@ async function handleMessage(session: Session, message: any): Promise<any> {
             name: t.name,
             description: t.description,
             inputSchema: t.inputSchema,
+            annotations: t.annotations,
           })),
         },
       };
@@ -438,6 +759,145 @@ async function handleMessage(session: Session, message: any): Promise<any> {
 
       const result = await tool.handler(toolArgs);
       return { jsonrpc: "2.0", id, result };
+    }
+
+    if (method === "resources/list") {
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          resources: SERVER_CARD.resources,
+        },
+      };
+    }
+
+    if (method === "resources/read") {
+      const uri = params?.uri;
+      
+      if (uri === "canvas://courses") {
+        // Find the get_courses tool and execute it
+        const tool = session.tools.find((t) => t.name === "get_courses");
+        if (tool) {
+          const result = await tool.handler({});
+          return {
+            jsonrpc: "2.0",
+            id,
+            result: {
+              contents: [{ uri, mimeType: "application/json", text: result.content[0].text }],
+            },
+          };
+        }
+      }
+      
+      if (uri === "gradescope://courses") {
+        const tool = session.tools.find((t) => t.name === "get_gradescope_courses");
+        if (tool) {
+          const result = await tool.handler({});
+          return {
+            jsonrpc: "2.0",
+            id,
+            result: {
+              contents: [{ uri, mimeType: "application/json", text: result.content[0].text }],
+            },
+          };
+        }
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            contents: [{ uri, mimeType: "application/json", text: JSON.stringify({ error: "Gradescope not configured" }) }],
+          },
+        };
+      }
+
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: `Unknown resource: ${uri}` },
+      };
+    }
+
+    if (method === "prompts/list") {
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          prompts: SERVER_CARD.prompts,
+        },
+      };
+    }
+
+    if (method === "prompts/get") {
+      const promptName = params?.name;
+      const promptArgs = params?.arguments || {};
+      
+      const prompt = SERVER_CARD.prompts.find((p) => p.name === promptName);
+      if (!prompt) {
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32602, message: `Unknown prompt: ${promptName}` },
+        };
+      }
+
+      // Generate prompt messages based on the prompt type
+      let messages: Array<{ role: string; content: { type: string; text: string } }> = [];
+      
+      if (promptName === "find_resources") {
+        const resourceType = promptArgs.resource_type || "all";
+        const courseName = promptArgs.course_name;
+        const courseFilter = courseName ? ` in the course "${courseName}"` : " across all my courses";
+        messages = [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Please help me find ${resourceType === "all" ? "resources" : resourceType + "s"}${courseFilter}.
+
+Follow this hierarchical navigation order:
+1. **get_courses** - First, retrieve all available courses to get their IDs
+2. **get_modules** - For each relevant course, get the list of modules using the course_id
+3. **get_module_items** - For each module, retrieve the items (files, pages, assignments) using course_id and module_id
+4. **get_file_url** - If looking for downloadable files, get the direct download URL using course_id and file_id
+
+${resourceType === "assignment" ? "Also use **get_course_assignments** to get assignment details directly." : ""}
+
+Present the results organized by course and module, showing the resource name, type, and any relevant details (due dates for assignments, download URLs for files).`,
+            },
+          },
+        ];
+      } else if (promptName === "list_upcoming_assignments") {
+        const days = promptArgs.days || 7;
+        messages = [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Please list all my upcoming assignments due in the next ${days} days. First, get my courses from both Canvas and Gradescope (if configured), then retrieve assignments for each course and filter to show only those due within ${days} days. Organize them by due date.`,
+            },
+          },
+        ];
+      } else if (promptName === "course_overview") {
+        const courseName = promptArgs.course_name || "unknown course";
+        messages = [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Please give me a complete overview of my course "${courseName}". Include:\n1. Course details and ID\n2. All modules and their items\n3. All assignments (upcoming and past)\n4. Any relevant files or resources\n\nCheck both Canvas and Gradescope for this course.`,
+            },
+          },
+        ];
+      }
+
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          description: prompt.description,
+          messages,
+        },
+      };
     }
 
     if (method === "ping") {
