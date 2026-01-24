@@ -37,28 +37,54 @@ interface RuntimeConfig {
 function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
   const url = new URL(request.url);
   
+  // Debug: Log all incoming request details
+  console.log("[Config Debug] Full URL:", url.toString());
+  console.log("[Config Debug] Pathname:", url.pathname);
+  console.log("[Config Debug] Search params:", Object.fromEntries(url.searchParams.entries()));
+  
+  // Log all headers for debugging
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    // Don't log sensitive auth headers fully
+    if (key.toLowerCase().includes('auth') || key.toLowerCase().includes('cookie')) {
+      headers[key] = value.substring(0, 20) + '...';
+    } else {
+      headers[key] = value;
+    }
+  });
+  console.log("[Config Debug] Headers:", JSON.stringify(headers));
+  
   // Try query parameters first (Smithery session config)
   const canvasApiKey = url.searchParams.get("canvasApiKey") || 
                        url.searchParams.get("canvas_api_key") ||
+                       url.searchParams.get("config[canvasApiKey]") ||
                        request.headers.get("x-canvas-api-key") ||
+                       request.headers.get("x-canvasapikey") ||
                        env.CANVAS_API_KEY || "";
   
   const canvasBaseUrl = url.searchParams.get("canvasBaseUrl") || 
                         url.searchParams.get("canvas_base_url") ||
+                        url.searchParams.get("config[canvasBaseUrl]") ||
                         request.headers.get("x-canvas-base-url") ||
+                        request.headers.get("x-canvasbaseurl") ||
                         env.CANVAS_BASE_URL || "https://canvas.asu.edu";
   
   const gradescopeEmail = url.searchParams.get("gradescopeEmail") || 
                           url.searchParams.get("gradescope_email") ||
+                          url.searchParams.get("config[gradescopeEmail]") ||
                           request.headers.get("x-gradescope-email") ||
                           env.GRADESCOPE_EMAIL;
   
   const gradescopePassword = url.searchParams.get("gradescopePassword") || 
                              url.searchParams.get("gradescope_password") ||
+                             url.searchParams.get("config[gradescopePassword]") ||
                              request.headers.get("x-gradescope-password") ||
                              env.GRADESCOPE_PASSWORD;
   
   const debug = url.searchParams.get("debug") === "true" || env.DEBUG === "true";
+
+  console.log("[Config Debug] Extracted canvasApiKey:", canvasApiKey ? `${canvasApiKey.substring(0, 10)}...` : "EMPTY");
+  console.log("[Config Debug] Extracted canvasBaseUrl:", canvasBaseUrl);
 
   return { canvasApiKey, canvasBaseUrl, gradescopeEmail, gradescopePassword, debug };
 }
@@ -299,25 +325,30 @@ const SERVER_CARD = {
   serverInfo: { name: "Canvas MCP", version: "1.1.0" },
   authentication: { required: false, schemes: [] },
   // Configuration schema for Smithery to generate OAuth UI form
+  // x-from tells Smithery where to pass each config value
   configurationSchema: {
     type: "object",
     properties: {
       canvasApiKey: {
         type: "string",
         description: "Your Canvas API key (Personal Access Token from Canvas settings)",
+        "x-from": { query: "canvasApiKey" },
       },
       canvasBaseUrl: {
         type: "string",
         description: "Your Canvas instance URL (e.g., https://canvas.instructure.com)",
         default: "https://canvas.asu.edu",
+        "x-from": { query: "canvasBaseUrl" },
       },
       gradescopeEmail: {
         type: "string",
         description: "Gradescope login email (optional)",
+        "x-from": { query: "gradescopeEmail" },
       },
       gradescopePassword: {
         type: "string",
         description: "Gradescope password (optional)",
+        "x-from": { query: "gradescopePassword" },
       },
     },
     required: ["canvasApiKey"],
