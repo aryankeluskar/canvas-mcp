@@ -294,10 +294,34 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
   return tools;
 }
 
-// Smithery Server Card
+// Smithery Server Card with configuration schema
 const SERVER_CARD = {
   serverInfo: { name: "Canvas MCP", version: "1.1.0" },
   authentication: { required: false, schemes: [] },
+  // Configuration schema for Smithery to generate OAuth UI form
+  configurationSchema: {
+    type: "object",
+    properties: {
+      canvasApiKey: {
+        type: "string",
+        description: "Your Canvas API key (Personal Access Token from Canvas settings)",
+      },
+      canvasBaseUrl: {
+        type: "string",
+        description: "Your Canvas instance URL (e.g., https://canvas.instructure.com)",
+        default: "https://canvas.asu.edu",
+      },
+      gradescopeEmail: {
+        type: "string",
+        description: "Gradescope login email (optional)",
+      },
+      gradescopePassword: {
+        type: "string",
+        description: "Gradescope password (optional)",
+      },
+    },
+    required: ["canvasApiKey"],
+  },
   tools: [
     { name: "get_courses", description: "Retrieve all Canvas courses", inputSchema: { type: "object", properties: {}, required: [] } },
     { name: "get_modules", description: "Retrieve modules for a course", inputSchema: { type: "object", properties: { course_id: { type: "string" } }, required: ["course_id"] } },
