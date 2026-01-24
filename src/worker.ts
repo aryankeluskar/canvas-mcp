@@ -33,58 +33,67 @@ interface RuntimeConfig {
   debug: boolean;
 }
 
-// Extract config from request (Smithery passes config via query params or headers)
+// Decode Smithery's base64-encoded config parameter
+function decodeSmitheryConfig(configParam: string): Record<string, any> {
+  try {
+    // Smithery passes config as base64-encoded JSON in a single "config" query param
+    const decoded = atob(configParam);
+    const parsed = JSON.parse(decoded);
+    console.log("[Config] Decoded Smithery config:", JSON.stringify({
+      ...parsed,
+      canvasApiKey: parsed.canvasApiKey ? `${parsed.canvasApiKey.substring(0, 10)}...` : undefined,
+      gradescopePassword: parsed.gradescopePassword ? "***" : undefined,
+    }));
+    return parsed;
+  } catch (error) {
+    console.error("[Config] Failed to decode Smithery config:", error);
+    return {};
+  }
+}
+
+// Extract config from request (Smithery passes config as base64-encoded JSON)
 function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
   const url = new URL(request.url);
   
-  // Debug: Log all incoming request details
-  console.log("[Config Debug] Full URL:", url.toString());
-  console.log("[Config Debug] Pathname:", url.pathname);
-  console.log("[Config Debug] Search params:", Object.fromEntries(url.searchParams.entries()));
+  // Check for Smithery's base64-encoded config parameter first
+  const configParam = url.searchParams.get("config");
+  let smitheryConfig: Record<string, any> = {};
   
-  // Log all headers for debugging
-  const headers: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    // Don't log sensitive auth headers fully
-    if (key.toLowerCase().includes('auth') || key.toLowerCase().includes('cookie')) {
-      headers[key] = value.substring(0, 20) + '...';
-    } else {
-      headers[key] = value;
-    }
-  });
-  console.log("[Config Debug] Headers:", JSON.stringify(headers));
+  if (configParam) {
+    smitheryConfig = decodeSmitheryConfig(configParam);
+  }
   
-  // Try query parameters first (Smithery session config)
-  const canvasApiKey = url.searchParams.get("canvasApiKey") || 
+  // Priority: Smithery config > individual query params > headers > env vars
+  const canvasApiKey = smitheryConfig.canvasApiKey ||
+                       url.searchParams.get("canvasApiKey") || 
                        url.searchParams.get("canvas_api_key") ||
-                       url.searchParams.get("config[canvasApiKey]") ||
                        request.headers.get("x-canvas-api-key") ||
-                       request.headers.get("x-canvasapikey") ||
                        env.CANVAS_API_KEY || "";
   
-  const canvasBaseUrl = url.searchParams.get("canvasBaseUrl") || 
+  const canvasBaseUrl = smitheryConfig.canvasBaseUrl ||
+                        url.searchParams.get("canvasBaseUrl") || 
                         url.searchParams.get("canvas_base_url") ||
-                        url.searchParams.get("config[canvasBaseUrl]") ||
                         request.headers.get("x-canvas-base-url") ||
-                        request.headers.get("x-canvasbaseurl") ||
                         env.CANVAS_BASE_URL || "https://canvas.asu.edu";
   
-  const gradescopeEmail = url.searchParams.get("gradescopeEmail") || 
+  const gradescopeEmail = smitheryConfig.gradescopeEmail ||
+                          url.searchParams.get("gradescopeEmail") || 
                           url.searchParams.get("gradescope_email") ||
-                          url.searchParams.get("config[gradescopeEmail]") ||
                           request.headers.get("x-gradescope-email") ||
                           env.GRADESCOPE_EMAIL;
   
-  const gradescopePassword = url.searchParams.get("gradescopePassword") || 
+  const gradescopePassword = smitheryConfig.gradescopePassword ||
+                             url.searchParams.get("gradescopePassword") || 
                              url.searchParams.get("gradescope_password") ||
-                             url.searchParams.get("config[gradescopePassword]") ||
                              request.headers.get("x-gradescope-password") ||
                              env.GRADESCOPE_PASSWORD;
   
-  const debug = url.searchParams.get("debug") === "true" || env.DEBUG === "true";
+  const debug = smitheryConfig.debug === true ||
+                url.searchParams.get("debug") === "true" || 
+                env.DEBUG === "true";
 
-  console.log("[Config Debug] Extracted canvasApiKey:", canvasApiKey ? `${canvasApiKey.substring(0, 10)}...` : "EMPTY");
-  console.log("[Config Debug] Extracted canvasBaseUrl:", canvasBaseUrl);
+  console.log("[Config] Final config - canvasApiKey:", canvasApiKey ? `${canvasApiKey.substring(0, 10)}...` : "EMPTY");
+  console.log("[Config] Final config - canvasBaseUrl:", canvasBaseUrl);
 
   return { canvasApiKey, canvasBaseUrl, gradescopeEmail, gradescopePassword, debug };
 }
