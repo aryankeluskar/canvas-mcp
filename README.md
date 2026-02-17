@@ -1,7 +1,5 @@
 # Canvas MCP
 
-[![smithery badge](https://smithery.ai/badge/@aryankeluskar/canvas-mcp)](https://smithery.ai/server/@aryankeluskar/canvas-mcp)
-
 Canvas MCP is a set of tools that allows your AI agents to interact with Canvas LMS and Gradescope.
 
 ![gradescope](assets/gradescope_mcp_ant.png)
@@ -29,23 +27,23 @@ Note down the following beforehand:
    
 ### Installing via Smithery (**Preferred**)
 
-To install Canvas MCP for Claude Desktop via [Smithery](https://smithery.ai/server/@aryankeluskar/canvas-mcp):
+To install Canvas MCP for Claude Code via [Smithery](https://smithery.ai/server/aryankeluskar/canvas-mcp):
 
 ```bash
-npx -y @smithery/cli install @aryankeluskar/canvas-mcp --client claude
+npx -y @smithery/cli@latest mcp add aryankeluskar/canvas-mcp --client claude-code
 ```
 
 Or, for Cursor IDE to use canvas-mcp with other models:
 
 ```bash
-npx -y @smithery/cli install @aryankeluskar/canvas-mcp --client cursor
+npx -y @smithery/cli install aryankeluskar/canvas-mcp --client cursor
 ```
 
 Or, for ChatGPT:
 
 
 1) Enable Developer Mode in settings, if not already enabled
-2) Go to `ChatGPT Settings > Connectors` and click Create to add this server URL: `https://server.smithery.ai/@aryankeluskar/canvas-mcp/mcp`
+2) Go to `ChatGPT Settings > Connectors` and click Create to add this server URL: `https://canvas-mcp--aryankeluskar.run.tools`
 
 ---
 
