@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "canvas-mcp-claude",
+  "main": "src/worker-agentic.ts",
+  "compatibility_date": "2025-01-13",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "vars": {
+    "CANVAS_BASE_URL": "https://canvas.asu.edu"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

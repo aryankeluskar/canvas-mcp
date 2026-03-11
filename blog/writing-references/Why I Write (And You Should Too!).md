@@ -1,0 +1,21 @@
+Dec 27, 2025
+
+WRITING
+Why I Write (And You Should Too!)
+Every now and then, people ask me why I write. I don’t get paid to write here, so it’s not immediately obvious why I keep writing.
+
+I think writing is one of the most valuable things you can do, and I recommend everyone try it. Here’s why:
+
+It makes you a better thinker and communicator. Writing is a muscle. The more you write, the easier it gets, and your ability improves. You’ll learn to make clearer arguments, crisper explanations, and better empathize with your audience. These skills are applicable to everything.
+You’ll get feedback that makes you a better writer. Feedback exposes weak arguments and strengthens the good ones. Plus, learning to listen to feedback is another skill that is universally applicable.
+You’ll meet people interested in the same things you are. Looking through my correspondence, it’s amazing how many of my favorite people to chat with I met through writing online. (BTW, this goes both ways. If you read something that resonates with you online, write them a note thanking them and telling them what you liked!)
+Your past thinking will be archived and searchable. This is more valuable than you think. If you invest time to hone a piece, you’ll turn back to it more often than you’d expect. Further, reviewing old pieces and threads over time will reveal what worked and what didn’t while making your progress tangible.
+The value of your writing compounds. The value to you, that is. I don’t think my pieces from 6 years ago are improving anyone’s life, but the contacts I’ve made and pieces I’ve crafted have grown into a foundation I get to leverage everyday.
+Writing gives you a license to explore and organize your thoughts. This is the fun bit. Chasing down an idea that interests you, forming questions and then investigating them; it’s a joy. The second most common question I get about my writing is, “How do you motivate yourself to write?” This is the answer. There are so many drafts that live, dormant in my draft folder. So many times I start a piece and lose interest. And then: something will click and I’ll draft, investigate, and finish a piece in an hour (here’s two examples). These aren’t always the most substantive pieces, but they keep the practice going and the momentum up.
+It’s hard to form new habits. But writing is s the best investment you can make today. Here’s a few tips for getting started:
+
+Be okay with bad writing. Most writing isn’t great! If my hit rate is 1 out of 5, I’m thrilled. Get comfortable publishing things that aren’t perfect. I know many people who wait too long to publish and, well, never do. They do this for years. If they’d gotten the ball rolling back then, they’d be better writers today. It’s weird: you’d think regular private writing would be sufficient to get better. But it isn’t. There’s no stakes. No feedback. The only way to get better is to ship. Some people worry about the risk of bad writing. I think the biggest risk comes from being an asshole (so don’t be an asshole!) But the actual risks are quite low: most bad writing is neutral, it remains unread.
+You need to do the writing. Not AI. Writing is exercise. If I brought a forklift to the gym and used it to lift weights, what would be the point?
+But AI is a wonderful editor. When you’re getting started, it’s intimidating to ask people for feedback on drafts. Thankfully, AI is great at this! Paste in your draft and prompt it with something like, “This is a blog draft where I am trying to argue X, read the piece and identify any spelling or grammar errors, places where I am not being clear or where a reader might be confused, or areas where my argument is weak.” Take it with a grain of salt, but this is usually very, very helpful.
+Don’t overthink where to publish. Make pages public on Notion. Use Github pages. Use Substack, if you must. The only thing you cannot omit is an easy contact form and a way for someone to subscribe. I screwed this up for too long. RSS is not sufficient. Comments don’t count (in fact, turn them off). Let people email you with a form, one-on-one. The other thing to keep in mind is to pick something with low friction. If it takes too many steps to create a new post, you won’t.
+I hope you start a blog this year. Or revive an old one.

@@ -238,7 +238,8 @@ export class CanvasApi {
    */
   async getModuleItems(
     courseId: string | number,
-    moduleId: string | number
+    moduleId: string | number,
+    options?: { skipFileEnrichment?: boolean }
   ): Promise<ModuleItem[] | null> {
     const cacheKey = `${courseId}_${moduleId}`;
 
@@ -272,7 +273,9 @@ export class CanvasApi {
       }
 
       // Enrich File-type items with direct file URLs and content
-      await this.enrichFileItems(items, String(courseId));
+      if (!options?.skipFileEnrichment) {
+        await this.enrichFileItems(items, String(courseId));
+      }
 
       // Store in cache
       this.config.cache.set("module_items", items, cacheKey);
