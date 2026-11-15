@@ -1,0 +1,15 @@
+# Cloudflare Workers local development secrets.
+# Copy this file to `.dev.vars` and fill in real values:
+#   cp .dev.vars.example .dev.vars
+#
+# `.dev.vars` is gitignored - never commit real credentials.
+
+# Canvas API key: Canvas > Account > Settings > Approved Integrations > New Access Token
+CANVAS_API_KEY=your_canvas_access_token
+
+# Optional: defaults to https://canvas.asu.edu if unset
+CANVAS_BASE_URL=https://canvas.asu.edu
+
+# Optional: Gradescope credentials (enables Gradescope tools)
+GRADESCOPE_EMAIL=your_gradescope_email
+GRADESCOPE_PASSWORD=your_gradescope_password

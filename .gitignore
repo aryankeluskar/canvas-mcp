@@ -1,6 +1,13 @@
 .smithery
 node_modules
+
+# Local secrets - never commit (.dev.vars holds real API credentials)
+.dev.vars
 .env
+
+# Wrangler local state and build artifacts
+.wrangler
+
 .DS_Store
 
 future.py

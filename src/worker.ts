@@ -39,11 +39,9 @@ function decodeSmitheryConfig(configParam: string): Record<string, any> {
     // Smithery passes config as base64-encoded JSON in a single "config" query param
     const decoded = atob(configParam);
     const parsed = JSON.parse(decoded);
-    console.log("[Config] Decoded Smithery config:", JSON.stringify({
-      ...parsed,
-      canvasApiKey: parsed.canvasApiKey ? `${parsed.canvasApiKey.substring(0, 10)}...` : undefined,
-      gradescopePassword: parsed.gradescopePassword ? "***" : undefined,
-    }));
+    // NOTE: never log the decoded config object - it contains the Canvas
+    // API token and personal data (Gradescope email). Nothing here is safe
+    // to print, not even a token prefix.
     return parsed;
   } catch (error) {
     console.error("[Config] Failed to decode Smithery config:", error);
@@ -92,8 +90,13 @@ function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
                 url.searchParams.get("debug") === "true" || 
                 env.DEBUG === "true";
 
-  console.log("[Config] Final config - canvasApiKey:", canvasApiKey ? `${canvasApiKey.substring(0, 10)}...` : "EMPTY");
-  console.log("[Config] Final config - canvasBaseUrl:", canvasBaseUrl);
+  // Safe diagnostics only: never log credential values or fragments
+  // thereof - "set"/"not set" is all anyone needs to debug configuration.
+  console.log(
+    `[Config] canvasApiKey: ${canvasApiKey ? "set" : "not set"}, ` +
+    `gradescopeEmail: ${gradescopeEmail ? "set" : "not set"}, ` +
+    `gradescopePassword: ${gradescopePassword ? "set" : "not set"}`
+  );
 
   return { canvasApiKey, canvasBaseUrl, gradescopeEmail, gradescopePassword, debug };
 }
