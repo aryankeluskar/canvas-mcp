@@ -76,4 +76,16 @@ Add the following to your `mcp.json` or `claude_desktop_config.json` file:
 
 ---
 
+## Development
+
+Requires Node.js >= 22.12 (Wrangler 4 requirement).
+
+```bash
+npm install
+npm run typecheck   # TypeScript check (no emit)
+npm test            # end-to-end smoke test against a running server (start it with: npm start)
+```
+
+---
+
 Built by [Aryan Keluskar](https://aryankeluskar.com) :)
