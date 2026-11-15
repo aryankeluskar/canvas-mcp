@@ -76,4 +76,29 @@ Add the following to your `mcp.json` or `claude_desktop_config.json` file:
 
 ---
 
+## Run in the background (macOS)
+
+So the server starts at login and you don't need to keep a Terminal window open:
+
+```bash
+scripts/launchagent.sh install    # generate + start the LaunchAgent
+scripts/launchagent.sh status     # check it is running
+scripts/launchagent.sh restart    # reload after code changes
+scripts/launchagent.sh stop       # stop it
+scripts/launchagent.sh uninstall  # stop and remove
+```
+
+This installs a user-level LaunchAgent (no root required) that:
+
+- starts automatically when you log in and restarts if it crashes
+- reads credentials from `.dev.vars` in the repository checkout (nothing is copied or committed)
+- logs to `~/Library/Logs/canvas-mcp/`
+- keeps the MCP endpoint available at `http://localhost:8787/mcp`
+
+If you previously ran `npm start` manually, stop it first so the LaunchAgent can bind port 8787.
+
+Note: the generated plist stores the absolute path of the Node.js binary resolved at install time. If you switch or upgrade your Node installation (e.g. via Homebrew or a version manager), rerun `scripts/launchagent.sh install` and then `restart`.
+
+---
+
 Built by [Aryan Keluskar](https://aryankeluskar.com) :)
