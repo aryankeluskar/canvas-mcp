@@ -1,15 +1,12 @@
 /**
  * Configuration management for Canvas MCP
- * Compatible with Cloudflare Workers runtime and Smithery
- * 
- * Smithery automatically reads config from query params matching field names
- * See: https://smithery.ai/docs/build/session-config
+ * Compatible with the Cloudflare Workers runtime
  */
 
 import { z } from "zod";
 
-// Configuration schema for Smithery session config
-// Field names become query parameter names automatically
+// Configuration schema (field names match the query params / headers
+// the worker accepts per-session)
 export const configSchema = z.object({
   canvasApiKey: z
     .string()

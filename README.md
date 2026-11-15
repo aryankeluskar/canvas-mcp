@@ -19,60 +19,48 @@ Canvas MCP is a set of tools that allows your AI agents to interact with Canvas 
 - Get assignments
 - and so much more... 
 
-## Usage
+## Setup
 
 Note down the following beforehand:
 1. Canvas API Key from `Canvas > Account > Settings > Approved Integrations > New Access Token`
-2. Gradescope Email and Password https://www.gradescope.com/
-   
-### Installing via Smithery (**Preferred**)
+2. Gradescope Email and Password https://www.gradescope.com/ (optional - only needed for Gradescope tools)
 
-To install Canvas MCP for Claude Code via [Smithery](https://smithery.ai/server/aryankeluskar/canvas-mcp):
+### Run the server locally
 
 ```bash
-npx -y @smithery/cli@latest mcp add aryankeluskar/canvas-mcp --client claude-code
+git clone https://github.com/aryankeluskar/canvas-mcp.git
+cd canvas-mcp
+npm install
+cp .dev.vars.example .dev.vars
+# edit .dev.vars and add your Canvas API key (and Gradescope credentials, if wanted)
+npm start
 ```
 
-Or, for Cursor IDE to use canvas-mcp with other models:
+The MCP server is now available at `http://localhost:8787/mcp` (Streamable HTTP transport). A health check is available at `http://localhost:8787/health`.
+
+`.dev.vars` is gitignored - it holds your real credentials and must never be committed.
+
+### Register with Claude Code
 
 ```bash
-npx -y @smithery/cli install aryankeluskar/canvas-mcp --client cursor
+claude mcp add --transport http canvas http://localhost:8787/mcp
 ```
 
-Or, for ChatGPT:
+Verify with `claude mcp list`.
 
+### Register with OpenCode
 
-1) Enable Developer Mode in settings, if not already enabled
-2) Go to `ChatGPT Settings > Connectors` and click Create to add this server URL: `https://canvas-mcp--aryankeluskar.run.tools`
-
----
-
-
-### Manual Configuration (ONLY for local instances)
-
-Create a `.env` file in the root directory with the following environment variables:
-
-```
-SNITHERY_API_KEY=your_snithery_api_key
+```bash
+opencode mcp add canvas --url http://localhost:8787/mcp --global
 ```
 
-Add the following to your `mcp.json` or `claude_desktop_config.json` file:
+### Register with other MCP clients
 
-```json
-{
-  "mcpServers": {
-      "canvas": {
-          "command": "npx",
-          "args": [
-              "-y",
-              "@smithery/cli",
-              "run",
-              "@aryankeluskar/canvas-mcp"
-          ]
-      }
-  }
-}
-```
+Any MCP client that supports the Streamable HTTP transport can use `http://localhost:8787/mcp` directly. Per-session configuration can also be passed via headers (`X-Canvas-Api-Key`, `X-Canvas-Base-Url`, `X-Gradescope-Email`, `X-Gradescope-Password`) instead of `.dev.vars`.
+
+## Historical note
+
+This server was previously distributed through [Smithery](https://smithery.ai), which shut down its MCP proxy, registry, and related services on October 31, 2026. The Smithery-specific `?config=` query parameter is no longer supported; use the direct local setup described above instead.
 
 ---
 
