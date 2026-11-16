@@ -100,13 +100,18 @@ export class CanvasApi {
    */
   private async makeRequest<T>(
     endpoint: string,
-    params?: Record<string, string>
+    params?: Record<string, string | string[]>
   ): Promise<T | null> {
     try {
       const url = new URL(endpoint, this.config.baseUrl);
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
-          url.searchParams.append(key, value);
+          if (Array.isArray(value)) {
+            // Canvas array params are repeated, e.g. include[]=a&include[]=b
+            value.forEach((v) => url.searchParams.append(key, v));
+          } else {
+            url.searchParams.append(key, value);
+          }
         });
       }
 
@@ -144,6 +149,39 @@ export class CanvasApi {
   }
 
   /**
+   * Make a GET request to a Canvas list endpoint and follow pagination
+   * until every page has been collected. Canvas defaults to 10 items per
+   * page and caps at 100, so single-page requests silently truncate lists.
+   */
+  private async makePaginatedRequest<T>(
+    endpoint: string,
+    params: Record<string, string | string[]> = {}
+  ): Promise<T[] | null> {
+    const perPage = 100;
+    const all: T[] = [];
+    // 50 pages x 100 items = hard safety cap of 5000 items.
+    for (let page = 1; page <= 50; page++) {
+      const chunk = await this.makeRequest<T[]>(endpoint, {
+        ...params,
+        page: String(page),
+        per_page: String(perPage),
+      });
+      if (!chunk) {
+        // Fail the whole call rather than silently returning a partial list.
+        return null;
+      }
+      all.push(...chunk);
+      if (chunk.length < perPage) {
+        return all;
+      }
+    }
+    this.config.logger.warn(
+      `Pagination safety cap reached for ${endpoint}; results may be incomplete`
+    );
+    return all;
+  }
+
+  /**
    * Get all available Canvas courses for the current user
    */
   async getCourses(): Promise<Record<string, number> | null> {
@@ -155,10 +193,9 @@ export class CanvasApi {
     }
 
     try {
-      const courses = await this.makeRequest<Course[]>("/api/v1/courses", {
-        page: "1",
-        per_page: "100",
-      });
+      const courses = await this.makePaginatedRequest<Course>(
+        "/api/v1/courses"
+      );
 
       if (!courses) {
         this.config.logger.error("Failed to fetch courses from Canvas API");
@@ -206,7 +243,7 @@ export class CanvasApi {
     }
 
     try {
-      const modules = await this.makeRequest<Module[]>(
+      const modules = await this.makePaginatedRequest<Module>(
         `/api/v1/courses/${courseId}/modules`
       );
 
@@ -253,9 +290,8 @@ export class CanvasApi {
     }
 
     try {
-      const items = await this.makeRequest<ModuleItem[]>(
-        `/api/v1/courses/${courseId}/modules/${moduleId}/items`,
-        { per_page: "100" }
+      const items = await this.makePaginatedRequest<ModuleItem>(
+        `/api/v1/courses/${courseId}/modules/${moduleId}/items`
       );
 
       if (!items) {
@@ -492,17 +528,16 @@ export class CanvasApi {
     bucket?: string
   ): Promise<Assignment[] | null> {
     try {
-      const params: Record<string, string> = {
+      const params: Record<string, string | string[]> = {
         order_by: "due_at",
-        per_page: "100",
-        "include[]": JSON.stringify(["submission", "all_dates"]),
+        "include[]": ["submission", "all_dates"],
       };
 
       if (bucket) {
         params.bucket = bucket;
       }
 
-      const assignments = await this.makeRequest<Assignment[]>(
+      const assignments = await this.makePaginatedRequest<Assignment>(
         `/api/v1/courses/${courseId}/assignments`,
         params
       );
