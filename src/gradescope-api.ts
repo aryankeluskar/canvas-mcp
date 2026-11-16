@@ -106,10 +106,21 @@ export class GradescopeApi {
   private cookieManager: CookieManager;
   private isAuthenticated: boolean = false;
   private csrfToken: string = "";
+  // Human-readable reason for the most recent failure, if any.
+  // Never contains credential values or fragments - fixed strings only.
+  private lastError: string | null = null;
 
   constructor(config: GradescopeConfig) {
     this.config = config;
     this.cookieManager = new CookieManager();
+  }
+
+  /**
+   * Reason the most recent Gradescope call failed, or null.
+   * Used to give tool callers an actionable message instead of a generic failure.
+   */
+  getLastError(): string | null {
+    return this.lastError;
   }
 
   /**
@@ -119,6 +130,7 @@ export class GradescopeApi {
     if (this.isAuthenticated) {
       return true;
     }
+    this.lastError = null;
 
     try {
       this.config.logger.debug("Starting Gradescope authentication...");
@@ -126,6 +138,7 @@ export class GradescopeApi {
       // Step 1: Get homepage to extract authenticity token and set initial session cookie
       const authToken = await this.getAuthTokenAndInitSession();
       if (!authToken) {
+        this.lastError = "could not load the Gradescope login page";
         this.config.logger.error("Failed to get authentication token");
         return false;
       }
@@ -236,6 +249,11 @@ export class GradescopeApi {
 
         return true;
       } else {
+        // Gradescope re-renders the login form with HTTP 200 on rejected
+        // credentials (Rails convention), so anything other than a 302
+        // here means the login did not succeed.
+        this.lastError =
+          "Gradescope login was rejected - check your Gradescope email and password (school-SSO accounts cannot log in with a password)";
         this.config.logger.error(`Login failed with status: ${response.status}`);
         return false;
       }
@@ -318,6 +336,7 @@ export class GradescopeApi {
           "Unauthorized - authentication may have expired"
         );
         this.isAuthenticated = false;
+        this.lastError = "Gradescope session expired";
         return null;
       }
 

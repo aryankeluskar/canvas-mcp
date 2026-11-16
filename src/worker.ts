@@ -389,7 +389,7 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         },
         handler: async () => {
           const courses = await gsApi.getGradescopeCourses();
-          return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : "Failed to retrieve Gradescope courses" }] };
+          return { content: [{ type: "text", text: courses ? JSON.stringify(courses, null, 2) : `Failed to retrieve Gradescope courses${gsApi.getLastError() ? ` (${gsApi.getLastError()})` : ""}` }] };
         },
       },
       {
@@ -414,7 +414,7 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         },
         handler: async ({ course_name }: { course_name: string }) => {
           const course = await gsApi.getGradescopeCourseByName(course_name);
-          return { content: [{ type: "text", text: course ? JSON.stringify(course, null, 2) : "Course not found" }] };
+          return { content: [{ type: "text", text: course ? JSON.stringify(course, null, 2) : (gsApi.getLastError() ? `Failed to retrieve Gradescope courses (${gsApi.getLastError()})` : "Course not found") }] };
         },
       },
       {
@@ -439,7 +439,7 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         },
         handler: async ({ course_id }: { course_id: string }) => {
           const assignments = await gsApi.getGradescopeAssignments(course_id);
-          return { content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : "Failed to retrieve assignments" }] };
+          return { content: [{ type: "text", text: assignments ? JSON.stringify(assignments, null, 2) : `Failed to retrieve assignments${gsApi.getLastError() ? ` (${gsApi.getLastError()})` : ""}` }] };
         },
       },
       {
@@ -468,7 +468,7 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
         },
         handler: async ({ course_id, assignment_name }: { course_id: string; assignment_name: string }) => {
           const assignment = await gsApi.getGradescopeAssignmentByName(course_id, assignment_name);
-          return { content: [{ type: "text", text: assignment ? JSON.stringify(assignment, null, 2) : "Assignment not found" }] };
+          return { content: [{ type: "text", text: assignment ? JSON.stringify(assignment, null, 2) : (gsApi.getLastError() ? `Failed to retrieve Gradescope assignments (${gsApi.getLastError()})` : "Assignment not found") }] };
         },
       }
     );
