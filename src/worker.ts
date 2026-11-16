@@ -33,61 +33,32 @@ interface RuntimeConfig {
   debug: boolean;
 }
 
-// Decode Smithery's base64-encoded config parameter
-function decodeSmitheryConfig(configParam: string): Record<string, any> {
-  try {
-    // Smithery passes config as base64-encoded JSON in a single "config" query param
-    const decoded = atob(configParam);
-    const parsed = JSON.parse(decoded);
-    // NOTE: never log the decoded config object - it contains the Canvas
-    // API token and personal data (Gradescope email). Nothing here is safe
-    // to print, not even a token prefix.
-    return parsed;
-  } catch (error) {
-    console.error("[Config] Failed to decode Smithery config:", error);
-    return {};
-  }
-}
-
-// Extract config from request (Smithery passes config as base64-encoded JSON)
+// Extract config from the request, falling back to environment variables.
+// Priority: query params > headers > env vars
 function getConfigFromRequest(request: Request, env: Env): RuntimeConfig {
   const url = new URL(request.url);
-  
-  // Check for Smithery's base64-encoded config parameter first
-  const configParam = url.searchParams.get("config");
-  let smitheryConfig: Record<string, any> = {};
-  
-  if (configParam) {
-    smitheryConfig = decodeSmitheryConfig(configParam);
-  }
-  
-  // Priority: Smithery config > individual query params > headers > env vars
-  const canvasApiKey = smitheryConfig.canvasApiKey ||
-                       url.searchParams.get("canvasApiKey") || 
+
+  const canvasApiKey = url.searchParams.get("canvasApiKey") ||
                        url.searchParams.get("canvas_api_key") ||
                        request.headers.get("x-canvas-api-key") ||
                        env.CANVAS_API_KEY || "";
-  
-  const canvasBaseUrl = smitheryConfig.canvasBaseUrl ||
-                        url.searchParams.get("canvasBaseUrl") || 
+
+  const canvasBaseUrl = url.searchParams.get("canvasBaseUrl") ||
                         url.searchParams.get("canvas_base_url") ||
                         request.headers.get("x-canvas-base-url") ||
                         env.CANVAS_BASE_URL || "https://canvas.asu.edu";
-  
-  const gradescopeEmail = smitheryConfig.gradescopeEmail ||
-                          url.searchParams.get("gradescopeEmail") || 
+
+  const gradescopeEmail = url.searchParams.get("gradescopeEmail") ||
                           url.searchParams.get("gradescope_email") ||
                           request.headers.get("x-gradescope-email") ||
                           env.GRADESCOPE_EMAIL;
-  
-  const gradescopePassword = smitheryConfig.gradescopePassword ||
-                             url.searchParams.get("gradescopePassword") || 
+
+  const gradescopePassword = url.searchParams.get("gradescopePassword") ||
                              url.searchParams.get("gradescope_password") ||
                              request.headers.get("x-gradescope-password") ||
                              env.GRADESCOPE_PASSWORD;
-  
-  const debug = smitheryConfig.debug === true ||
-                url.searchParams.get("debug") === "true" || 
+
+  const debug = url.searchParams.get("debug") === "true" ||
                 env.DEBUG === "true";
 
   // Safe diagnostics only: never log credential values or fragments
@@ -478,35 +449,30 @@ function createTools(config: RuntimeConfig): ToolDefinition[] {
   return tools;
 }
 
-// Smithery Server Card with configuration schema
+// MCP server card, served at /.well-known/mcp/server-card.json
 const SERVER_CARD = {
   serverInfo: { name: "Canvas MCP", version: "1.1.0" },
   authentication: { required: false, schemes: [] },
-  // Configuration schema for Smithery to generate OAuth UI form
-  // x-from tells Smithery where to pass each config value
+  // Configuration clients may pass per-session (via query params or headers)
   configurationSchema: {
     type: "object",
     properties: {
       canvasApiKey: {
         type: "string",
         description: "Your Canvas API key (Personal Access Token from Canvas settings). Required for Canvas tools.",
-        "x-from": { query: "canvasApiKey" },
       },
       canvasBaseUrl: {
         type: "string",
         description: "Your Canvas instance URL (e.g., https://canvas.instructure.com)",
         default: "https://canvas.asu.edu",
-        "x-from": { query: "canvasBaseUrl" },
       },
       gradescopeEmail: {
         type: "string",
         description: "Gradescope login email. Required (along with password) for Gradescope tools.",
-        "x-from": { query: "gradescopeEmail" },
       },
       gradescopePassword: {
         type: "string",
         description: "Gradescope password. Required (along with email) for Gradescope tools.",
-        "x-from": { query: "gradescopePassword" },
       },
     },
     required: ["canvasApiKey"],
@@ -941,7 +907,7 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Smithery server card
+    // MCP server card
     if (url.pathname === "/.well-known/mcp/server-card.json") {
       return new Response(JSON.stringify(SERVER_CARD, null, 2), {
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -961,9 +927,9 @@ export default {
       );
     }
 
-    // MCP endpoints (also handle root path for Smithery proxy compatibility)
+    // MCP endpoints (also handle root path for proxy compatibility)
     if (url.pathname === "/mcp" || url.pathname === "/sse" || url.pathname === "/") {
-      // Get runtime config from request (supports Smithery session config)
+      // Get runtime config from request (per-session config via query params/headers)
       const config = getConfigFromRequest(request, env);
       
       // GET - SSE stream
