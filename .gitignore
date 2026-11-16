@@ -12,7 +12,7 @@ node_modules
 
 future.py
 
-*.json
+# NOTE: package-lock.json must stay tracked for reproducible installs
 ignore.txt
 
 # General
