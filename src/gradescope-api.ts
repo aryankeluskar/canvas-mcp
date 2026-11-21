@@ -389,7 +389,9 @@ export class GradescopeApi {
         Object.keys(courses.instructor).length === 0 &&
         Object.keys(courses.student).length === 0
       ) {
-        const yourCourses = await this.parseCoursesFromHTML($, "Your Courses");
+        const yourCourses =
+          (await this.parseCoursesFromHTML($, "Your Courses")) ||
+          this.parseCourseDashboard($);
         if (yourCourses) {
           if (yourCourses.isInstructor) {
             courses.instructor = yourCourses.courses;
@@ -515,6 +517,60 @@ export class GradescopeApi {
       });
     });
 
+    return { courses, isInstructor };
+  }
+
+  /**
+   * Parse courses from Gradescope's current account page ("Course Dashboard").
+   *
+   * The page no longer has a "Your Courses" / "Student Courses" heading. It has a
+   * single .courseList in which each term is a .courseList--term header followed by a
+   * .courseList--coursesForTerm block of course boxes. Older terms sit inside a
+   * collapsed .courseList--inactiveCourses block, so descendants are walked in order.
+   */
+  private parseCourseDashboard($: cheerio.CheerioAPI): {
+    courses: Record<string, GradescopeCourse>;
+    isInstructor: boolean;
+  } | null {
+    const courseList = $(".courseList").first();
+    if (courseList.length === 0) {
+      return null;
+    }
+
+    const courses: Record<string, GradescopeCourse> = {};
+    let termText = "";
+
+    courseList
+      .find(".courseList--term, .courseList--coursesForTerm")
+      .each((_, element) => {
+        const block = $(element);
+        if (block.hasClass("courseList--term")) {
+          termText = block.contents().first().text().trim();
+        }
+        const [semester, year] = termText.split(" ");
+
+        block.find("a.courseBox").each((_, courseElement) => {
+          const courseEl = $(courseElement);
+          const courseId = (courseEl.attr("href") || "").split("/").pop();
+          if (!courseId) return;
+
+          courses[courseId] = {
+            id: courseId,
+            name: courseEl.find(".courseBox--shortname").text().trim(),
+            full_name: courseEl.find(".courseBox--name").text().trim(),
+            semester: semester || "",
+            year: year || "",
+            num_grades_published: null,
+            num_assignments: courseEl.find(".courseBox--assignments").text().trim(),
+          };
+        });
+      });
+
+    // Instructors see a "Create a new course" button on the dashboard.
+    const isInstructor = /Create a new course/i.test($.html());
+    this.config.logger.debug(
+      `Parsed ${Object.keys(courses).length} courses from the course dashboard`
+    );
     return { courses, isInstructor };
   }
 
